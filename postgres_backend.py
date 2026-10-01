@@ -4,6 +4,8 @@ Postgres is the only backend in this deployment; no temporary SQLite fallback.
 """
 import re
 import sqlite3
+import atexit
+import threading
 from datetime import date, datetime
 from cloud_config import database_settings
 
@@ -66,8 +68,9 @@ class Result:
 
 
 class Connection:
-    def __init__(self, raw):
+    def __init__(self, raw, release=None):
         self.raw = raw
+        self.release = release
     def __enter__(self):
         return self
     def __exit__(self, exc_type, exc, traceback):
@@ -77,7 +80,10 @@ class Connection:
             else:
                 self.raw.commit()
         finally:
-            self.raw.close()
+            if self.release is None:
+                self.raw.close()
+            else:
+                self.release(self.raw)
     def execute(self, sql, params=()):
         import psycopg
         if sql.strip().upper() == 'BEGIN IMMEDIATE':
@@ -98,13 +104,36 @@ class Connection:
                 self.execute(sql)
 
 
+_pool = None
+_pool_lock = threading.Lock()
+
+
+def configure_connection(raw):
+    # Run once per physical connection, not on each query or page interaction.
+    raw.execute('SET search_path TO flomaro, pg_catalog')
+    raw.execute("SET TIME ZONE 'Europe/Warsaw'")
+    raw.commit()
+
+
+def get_pool():
+    global _pool
+    with _pool_lock:
+        if _pool is None:
+            from psycopg_pool import ConnectionPool
+            pool = ConnectionPool(
+                kwargs=dict(database_settings(), row_factory=row_factory),
+                min_size=1, max_size=4, timeout=15,
+                max_idle=300, max_lifetime=1800,
+                configure=configure_connection,
+                check=ConnectionPool.check_connection,
+                open=False,
+            )
+            pool.open()
+            atexit.register(pool.close)
+            _pool = pool
+        return _pool
+
+
 def connect():
-    import psycopg
-    raw = psycopg.connect(**database_settings(), row_factory=row_factory)
-    try:
-        raw.execute('SET search_path TO flomaro, pg_catalog')
-        raw.execute("SET TIME ZONE 'Europe/Warsaw'")
-        return Connection(raw)
-    except Exception:
-        raw.close()
-        raise
+    pool = get_pool()
+    return Connection(pool.getconn(), release=pool.putconn)

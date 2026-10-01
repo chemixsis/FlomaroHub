@@ -239,6 +239,21 @@ def get_user_groups(user_id):
         """, (user_id,)).fetchall()
 
 
+def get_all_user_groups():
+    """One read for rendering team lists; write authorization still uses live reads."""
+    with connect() as conn:
+        rows = conn.execute("""
+            SELECT uwg.user_id, wg.code, wg.name
+            FROM work_groups wg
+            JOIN user_work_groups uwg ON uwg.group_id = wg.id
+            ORDER BY uwg.user_id, wg.name
+        """).fetchall()
+    groups = {}
+    for row in rows:
+        groups.setdefault(row['user_id'], []).append({'code': row['code'], 'name': row['name']})
+    return groups
+
+
 
 # ---------------- NOTIFICATIONS ----------------
 

@@ -8,7 +8,7 @@ import streamlit as st
 from db import (
     init_db, add_user, authenticate, get_user, get_users,
     change_own_pin, change_own_contact, admin_reset_pin,
-    get_user_groups, update_user_settings,
+    get_all_user_groups, update_user_settings,
     set_availability, get_user_availability, get_availability_for_users, delete_availability,
     set_day_off, get_user_days_off, get_days_off_for_users, is_day_off,
     get_notifications, count_unread_notifications, mark_notification_read, mark_all_notifications_read,
@@ -59,6 +59,18 @@ try:
 except Exception:
     st.error("Nie można połączyć się z bazą. Sprawdź konfigurację i stan projektu Supabase.")
     st.stop()
+
+
+
+# This snapshot belongs to this script run only: the next interaction reads anew.
+_render_groups = None
+
+
+def get_render_user_groups(user_id):
+    global _render_groups
+    if _render_groups is None:
+        _render_groups = get_all_user_groups()
+    return _render_groups.get(user_id, [])
 
 
 def logout():
@@ -325,7 +337,7 @@ def regular_schedule_users(users):
 
         codes = [
             g["code"]
-            for g in get_user_groups(person["id"])
+            for g in get_render_user_groups(person["id"])
         ]
 
         if "warehouse" in codes or "local" in codes:
@@ -359,7 +371,7 @@ def employee_schedule_calendar(user, groups):
             if person["access_level"] != "admin"
             and any(
                 group["code"] in ("warehouse", "local")
-                for group in get_user_groups(person["id"])
+                for group in get_render_user_groups(person["id"])
             )
         ]
     regular_month_calendar(
@@ -886,7 +898,7 @@ def employee_area_choice(user, groups):
 
 
 def employee_panel(user):
-    groups = [g["code"] for g in get_user_groups(user["id"])]
+    groups = [g["code"] for g in get_render_user_groups(user["id"])]
     selected_area = employee_area_choice(user, groups)
     if groups and selected_area is None:
         return
@@ -1214,7 +1226,7 @@ def approval_list(user, prefix, show_money):
 
 
 def manager_panel(user):
-    groups = [g["code"] for g in get_user_groups(user["id"])]
+    groups = [g["code"] for g in get_render_user_groups(user["id"])]
 
     st.subheader(f"Panel managera — {user['first_name']}")
 
@@ -1317,7 +1329,7 @@ def manager_panel(user):
                 continue
             person_groups = ", ".join(
                 work_group_label(g["code"])
-                for g in get_user_groups(person["id"])
+                for g in get_render_user_groups(person["id"])
             ) or "—"
             rows.append({
                 "Pracownik": f"{person['first_name']} {person['last_name']}",
@@ -1382,7 +1394,7 @@ def manager_panel(user):
             employee = employee_map[employee_name]
             employee_groups = [
                 g["code"]
-                for g in get_user_groups(employee["id"])
+                for g in get_render_user_groups(employee["id"])
             ]
 
             if employee_groups:
@@ -1582,7 +1594,7 @@ def admin_overview(users):
         "conflicts": [row for row in schedule if row["user_id"] in off_ids],
         "unassigned": [
             u for u in users
-            if u["access_level"] != "admin" and not get_user_groups(u["id"])
+            if u["access_level"] != "admin" and not get_render_user_groups(u["id"])
         ],
         "overnight": [row for row in active if row["start_at"][:10] < date.today().isoformat()],
         "events": [event for event in get_all_events() if event["event_date"] >= date.today().isoformat()][:5],
@@ -1803,7 +1815,7 @@ def admin_calendar(users):
 
                 person_groups = [
                     g["code"]
-                    for g in get_user_groups(person["id"])
+                    for g in get_render_user_groups(person["id"])
                 ]
 
                 options = [None]
@@ -2072,7 +2084,7 @@ def admin_profiles(users, employee=None, show_identity=True):
     summary = get_user_summary(employee["id"])
     groups = ", ".join(
         g["name"]
-        for g in get_user_groups(employee["id"])
+        for g in get_render_user_groups(employee["id"])
     ) or "—"
 
     if show_identity:
@@ -2208,7 +2220,7 @@ def admin_employee_accounts(users):
             "Imię i nazwisko": f"{u['first_name']} {u['last_name']}",
             "E-mail": u["email"], "Telefon": u["phone"],
             "Pozycja": "SZEF" if u["access_level"] == "admin" else "PRACOWNIK",
-            "Obszar": ", ".join(g["name"] for g in get_user_groups(u["id"])) or "—",
+            "Obszar": ", ".join(g["name"] for g in get_render_user_groups(u["id"])) or "—",
             "Stawka": money(u["hourly_rate"]),
         } for u in users]
         if not rows:
@@ -2230,7 +2242,7 @@ def admin_employee_accounts(users):
     st.subheader(f"{selected['first_name']} {selected['last_name']}")
     st.write(f"E-mail: {selected['email']}")
     st.write(f"Telefon: {selected['phone']}")
-    current_groups = [g["code"] for g in get_user_groups(selected["id"])]
+    current_groups = [g["code"] for g in get_render_user_groups(selected["id"])]
     with st.form(f"employee_settings_{selected['id']}"):
         access = st.selectbox(
             "Pozycja", ["employee", "admin"],
@@ -2343,7 +2355,7 @@ def admin_events_section(users):
         st.error("Event nie istnieje lub nie masz do niego dostępu.")
         return
     current_ids = [u["id"] for u in crew]
-    candidates = {u["id"]: u for u in users if any(g["code"] == "event" for g in get_user_groups(u["id"]))}
+    candidates = {u["id"]: u for u in users if any(g["code"] == "event" for g in get_render_user_groups(u["id"]))}
     candidates.update({u["id"]: u for u in crew})
     responsible = {u["id"]: u for u in users}
     if event is not None and event["manager_id"] is not None and event["manager_id"] not in responsible:
@@ -2409,7 +2421,7 @@ def admin_hours_section(users, user):
         manual_employee = manual_map[manual_name]
         manual_groups = [
             g["code"]
-            for g in get_user_groups(manual_employee["id"])
+            for g in get_render_user_groups(manual_employee["id"])
         ]
 
         if manual_groups:
