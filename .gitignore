@@ -1,0 +1,25 @@
+# Databases and employee data
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+backups/
+imports/
+uploads/
+# Credentials
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+*secrets.local*
+*.pem
+*.key
+# Local artifacts
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.zip
+*.log
