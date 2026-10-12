@@ -142,7 +142,7 @@ def connect():
 
 class ReadConnection(Connection):
     def execute(self, sql, params=()):
-        if not sql.lstrip().upper().startswith('SELECT '):
+        if not re.match(r'^\s*SELECT\b', sql, re.IGNORECASE):
             raise ValueError('Read connection accepts SELECT queries only')
         return super().execute(sql, params)
 
@@ -173,7 +173,7 @@ def read_connection():
 
 def read_batch(queries):
     """Send independent SELECTs together; fetch only after the pipeline finishes."""
-    if any(not sql.lstrip().upper().startswith('SELECT ') for sql, _ in queries.values()):
+    if any(not re.match(r'^\s*SELECT\b', sql, re.IGNORECASE) for sql, _ in queries.values()):
         raise ValueError('read_batch accepts SELECT queries only')
     with connect() as conn:
         with conn.raw.pipeline():
