@@ -1785,81 +1785,85 @@ def admin_calendar(users):
             f"{names}"
         )
 
-    assignments = {}
+    st.caption("Wybierz obsadę, a następnie kliknij Zapisz grafik na ten dzień. Zapisz zmiany przed wyborem innej daty.")
+    with st.form(f"schedule_assignments_{schedule_date.isoformat()}"):
+        assignments = {}
 
-    for row_start in range(
-        0,
-        len(schedule_users),
-        3,
-    ):
-        cols = st.columns(3)
-
-        for col, person in zip(
-            cols,
-            schedule_users[row_start:row_start + 3],
+        for row_start in range(
+            0,
+            len(schedule_users),
+            3,
         ):
-            with col:
-                st.markdown(
-                    f"**{person['first_name']} "
-                    f"{person['last_name']}**"
-                )
+            cols = st.columns(3)
 
-                if person["id"] in day_off_map:
-                    note = (
-                        day_off_map[person["id"]]["note"]
-                        or ""
+            for col, person in zip(
+                cols,
+                schedule_users[row_start:row_start + 3],
+            ):
+                with col:
+                    st.markdown(
+                        f"**{person['first_name']} "
+                        f"{person['last_name']}**"
                     )
-                    st.caption(
-                        "WOLNE"
-                        + (f" — {note}" if note else "")
+
+                    if person["id"] in day_off_map:
+                        note = (
+                            day_off_map[person["id"]]["note"]
+                            or ""
+                        )
+                        st.caption(
+                            "WOLNE"
+                            + (f" — {note}" if note else "")
+                        )
+                        assignments[person["id"]] = None
+                        continue
+
+                    person_groups = [
+                        g["code"]
+                        for g in get_render_user_groups(person["id"])
+                    ]
+
+                    options = [None]
+
+                    if "warehouse" in person_groups:
+                        options.append("warehouse")
+
+                    if "local" in person_groups:
+                        options.append("local")
+
+                    current = current_map.get(
+                        person["id"]
                     )
-                    assignments[person["id"]] = None
-                    continue
 
-                person_groups = [
-                    g["code"]
-                    for g in get_render_user_groups(person["id"])
-                ]
+                    if current not in options:
+                        current = None
 
-                options = [None]
+                    selected = st.selectbox(
+                        "Praca",
+                        options,
+                        index=options.index(current),
+                        format_func=lambda code: {
+                            None: "x",
+                            "warehouse": "Magazyn",
+                            "local": "Lokal",
+                        }[code],
+                        key=(
+                            f"schedule_day_{schedule_date.isoformat()}_"
+                            f"{person['id']}"
+                        ),
+                        label_visibility="collapsed",
+                    )
 
-                if "warehouse" in person_groups:
-                    options.append("warehouse")
+                    assignments[person["id"]] = selected
 
-                if "local" in person_groups:
-                    options.append("local")
+        submitted = st.form_submit_button(
+            "Zapisz grafik na ten dzień",
+            type="primary",
+            use_container_width=True,
+            key="admin_schedule_day_save",
+        )
 
-                current = current_map.get(
-                    person["id"]
-                )
-
-                if current not in options:
-                    current = None
-
-                selected = st.selectbox(
-                    "Praca",
-                    options,
-                    index=options.index(current),
-                    format_func=lambda code: {
-                        None: "x",
-                        "warehouse": "Magazyn",
-                        "local": "Lokal",
-                    }[code],
-                    key=(
-                        f"schedule_day_{schedule_date.isoformat()}_"
-                        f"{person['id']}"
-                    ),
-                    label_visibility="collapsed",
-                )
-
-                assignments[person["id"]] = selected
-
-    if st.button(
-        "Zapisz grafik na ten dzień",
-        type="primary",
-        use_container_width=True,
-        key="admin_schedule_day_save",
-    ):
+    if submitted:
         ok, msg = set_day_schedule(
             schedule_date,
             assignments,

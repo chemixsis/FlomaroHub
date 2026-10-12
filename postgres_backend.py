@@ -6,6 +6,7 @@ import re
 import sqlite3
 import atexit
 import threading
+from contextlib import contextmanager
 from datetime import date, datetime
 from cloud_config import database_settings
 
@@ -137,6 +138,37 @@ def get_pool():
 def connect():
     pool = get_pool()
     return Connection(pool.getconn(), release=pool.putconn)
+
+
+class ReadConnection(Connection):
+    def execute(self, sql, params=()):
+        if not sql.lstrip().upper().startswith('SELECT '):
+            raise ValueError('Read connection accepts SELECT queries only')
+        return super().execute(sql, params)
+
+
+@contextmanager
+def read_connection():
+    """Avoid BEGIN/COMMIT network trips for independent display queries.
+
+    Keep the ordinary connection path transactional for every business write.
+    Restore the pooled connection before any writer can borrow it.
+    """
+    pool = get_pool()
+    raw = pool.getconn()
+    try:
+        raw.autocommit = True
+        yield ReadConnection(raw)
+    finally:
+        try:
+            if not raw.closed:
+                raw.rollback()
+                raw.autocommit = False
+        except Exception:
+            raw.close()
+            raise
+        finally:
+            pool.putconn(raw)
 
 
 def read_batch(queries):

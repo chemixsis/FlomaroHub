@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from datetime import datetime, timedelta, date
 
-from postgres_backend import connect, read_batch
+from postgres_backend import connect, read_batch, read_connection
 from cloud_config import setting
 
 
@@ -26,7 +26,7 @@ def init_db(seed=True):
 
 
 def admin_exists():
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT 1 FROM users
             WHERE access_level = 'admin' AND active = 1
@@ -212,7 +212,7 @@ def authenticate(email, pin):
 
 
 def get_user(user_id):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT * FROM users
             WHERE id = ? AND active = 1
@@ -220,7 +220,7 @@ def get_user(user_id):
 
 
 def get_users():
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT * FROM users
             WHERE active = 1
@@ -229,7 +229,7 @@ def get_users():
 
 
 def get_user_groups(user_id):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT wg.code, wg.name
             FROM work_groups wg
@@ -241,7 +241,7 @@ def get_user_groups(user_id):
 
 def get_all_user_groups():
     """One read for rendering team lists; write authorization still uses live reads."""
-    with connect() as conn:
+    with read_connection() as conn:
         rows = conn.execute("""
             SELECT uwg.user_id, wg.code, wg.name
             FROM work_groups wg
@@ -283,7 +283,7 @@ def create_notification(user_id, title, message, notification_type="info"):
 
 
 def get_notifications(user_id, limit=50):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT *
             FROM notifications
@@ -294,7 +294,7 @@ def get_notifications(user_id, limit=50):
 
 
 def count_unread_notifications(user_id):
-    with connect() as conn:
+    with read_connection() as conn:
         row = conn.execute("""
             SELECT COUNT(*) AS cnt
             FROM notifications
@@ -439,7 +439,7 @@ def get_user_availability(user_id, date_from=None, date_to=None):
 
     sql += " ORDER BY availability_date"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -470,7 +470,7 @@ def get_availability_for_users(user_ids, date_from=None, date_to=None):
 
     sql += " ORDER BY a.availability_date, u.last_name, u.first_name"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -532,7 +532,7 @@ def get_user_days_off(user_id, date_from=None, date_to=None):
 
     sql += " ORDER BY availability_date"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -564,7 +564,7 @@ def get_days_off_for_users(user_ids, date_from=None, date_to=None):
 
     sql += " ORDER BY a.availability_date, u.last_name, u.first_name"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -575,7 +575,7 @@ def is_day_off(user_id, work_date):
         else str(work_date)
     )
 
-    with connect() as conn:
+    with read_connection() as conn:
         row = conn.execute("""
             SELECT 1
             FROM availabilities
@@ -596,7 +596,7 @@ def is_day_off(user_id, work_date):
 # ---------------- SHIFT / POS ----------------
 
 def get_active_shift(user_id):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT * FROM shifts
             WHERE user_id = ?
@@ -786,7 +786,7 @@ def add_manual_shift(
 
 
 def get_user_shifts(user_id):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT s.*, p.status AS payment_status
             FROM shifts s
@@ -797,7 +797,7 @@ def get_user_shifts(user_id):
 
 
 def get_all_shifts():
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT
                 s.*,
@@ -812,7 +812,7 @@ def get_all_shifts():
 
 
 def get_pending_shifts():
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT s.*, u.first_name, u.last_name
             FROM shifts s
@@ -823,7 +823,7 @@ def get_pending_shifts():
 
 
 def get_shift(shift_id):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT s.*, u.first_name, u.last_name
             FROM shifts s
@@ -980,7 +980,7 @@ def get_schedule_for_user_date(user_id, work_date, work_group=None):
 
     sql += " ORDER BY id"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -993,7 +993,7 @@ def get_day_schedule(work_date):
         else str(work_date)
     )
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT
                 s.*,
@@ -1286,7 +1286,7 @@ def get_user_schedule(user_id, work_group=None):
 
     sql += " ORDER BY work_date, id"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -1323,7 +1323,7 @@ def get_schedules_for_users(
 
     sql += " ORDER BY s.work_date, u.last_name, u.first_name"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -1350,7 +1350,7 @@ def get_group_schedules(work_group, date_from=None, date_to=None):
 
     sql += " ORDER BY s.work_date, u.last_name, u.first_name"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -1422,7 +1422,7 @@ def copy_schedule_week(
 
 
 def get_all_schedules():
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT s.*, u.first_name, u.last_name
             FROM schedules s
@@ -1432,7 +1432,7 @@ def get_all_schedules():
 
 
 def get_schedule(schedule_id):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT s.*, u.first_name, u.last_name
             FROM schedules s
@@ -1509,7 +1509,7 @@ def create_event(name, event_date, start_time, end_time, location, note, user_id
 
 
 def get_user_events(user_id):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT
                 e.*,
@@ -1525,7 +1525,7 @@ def get_user_events(user_id):
 
 def get_worker_event_details(user_id, event_id):
     """Only a worker assigned to the event may retrieve its details."""
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT
                 e.*,
@@ -1547,7 +1547,7 @@ def get_worker_event_details(user_id, event_id):
 
 
 def get_all_events():
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT
                 e.*,
@@ -1566,7 +1566,7 @@ def get_all_events():
 # ---------------- PAYMENTS ----------------
 
 def get_unpaid_approved_shifts(user_id, date_from, date_to):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT *
             FROM shifts
@@ -1610,7 +1610,7 @@ def create_payment(user_id, date_from, date_to):
 
 
 def get_user_payments(user_id):
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT * FROM payments
             WHERE user_id = ?
@@ -1632,7 +1632,7 @@ def get_all_payments(status=None):
 
     sql += " ORDER BY p.created_at DESC, p.id DESC"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -1718,7 +1718,7 @@ def get_report_rows(date_from, date_to, user_ids=None):
 
     sql += " ORDER BY s.start_at, u.last_name, u.first_name"
 
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -1754,7 +1754,7 @@ def get_admin_overview_rows():
     })
 
 def get_today_active_shifts():
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT s.*, u.first_name, u.last_name
             FROM shifts s
@@ -1767,7 +1767,7 @@ def get_today_active_shifts():
 
 def get_today_schedule():
     today = date.today().isoformat()
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT s.*, u.first_name, u.last_name
             FROM schedules s
@@ -1779,7 +1779,7 @@ def get_today_schedule():
 
 def get_upcoming_events(limit=5):
     today = date.today().isoformat()
-    with connect() as conn:
+    with read_connection() as conn:
         return conn.execute("""
             SELECT
                 e.*,
@@ -1814,7 +1814,7 @@ def get_user_summary(user_id):
 
 
 def get_admin_event(actor_id, event_id):
-    with connect() as conn:
+    with read_connection() as conn:
         if not conn.execute("SELECT 1 FROM users WHERE id=? AND active=1 AND access_level='admin'", (actor_id,)).fetchone():
             return None, []
         event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
@@ -1872,14 +1872,14 @@ def _can_read_event(conn, viewer_id, event_id):
 
 
 def get_event_attachments(viewer_id, event_id):
-    with connect() as conn:
+    with read_connection() as conn:
         if not _can_read_event(conn, viewer_id, event_id):
             return []
         return conn.execute("SELECT id,name,length(content) AS size,created_at FROM event_attachments WHERE event_id=? ORDER BY id", (event_id,)).fetchall()
 
 
 def get_event_attachment(viewer_id, attachment_id):
-    with connect() as conn:
+    with read_connection() as conn:
         row = conn.execute("SELECT * FROM event_attachments WHERE id=?", (attachment_id,)).fetchone()
         if row is None or not _can_read_event(conn, viewer_id, row["event_id"]):
             return None
