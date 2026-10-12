@@ -5,6 +5,7 @@ import io
 from uuid import uuid4
 import streamlit as st
 from mobile import install_mobile_support
+from recurring import current_rule, save_rule
 
 from db import (
     init_db, add_user, authenticate, get_user, get_users,
@@ -2277,6 +2278,26 @@ def admin_employee_accounts(users):
             st.error(message)
     if st.session_state.get("employee_saved"):
         st.success(st.session_state.pop("employee_saved"))
+    st.markdown("### Stały grafik od poniedziałku do piątku")
+    rule = current_rule(selected['id'])
+    options = [None, 'warehouse', 'local']
+    with st.form(f"recurring_schedule_{selected['id']}"):
+        recurring_group = st.selectbox("Domyślne miejsce pracy", options,
+            index=options.index(rule['work_group']) if rule else 0,
+            format_func=lambda value: work_group_label(value) if value else "Bez stałego grafiku")
+        recurring_start = st.date_input("Obowiązuje od", value=date.today(),
+                                        key=f"recurring_start_{selected['id']}")
+        st.caption("Poniedziałek–piątek, bez weekendów i zgłoszonych dni wolnych. "
+                   "Ręczne wpisy i poprawki szefa mają pierwszeństwo. "
+                   "Święta wypadające w tygodniu koryguj ręcznie.")
+        recurring_save = st.form_submit_button("Zapisz stały grafik", type="primary")
+    if recurring_save:
+        ok, message = save_rule(selected['id'], recurring_group, recurring_start)
+        if ok:
+            st.session_state['employee_saved'] = message
+            st.rerun()
+        else:
+            st.error(message)
     admin_profiles(users, employee=selected, show_identity=False)
     st.divider()
     st.markdown("### Reset PIN-u")

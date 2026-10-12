@@ -12,7 +12,8 @@ from postgres_backend import connect, IDENTITY_TABLES
 ROOT = Path(__file__).resolve().parent
 TABLES = ('users', 'work_groups', 'user_work_groups', 'registration_requests',
           'schedules', 'events', 'event_assignments', 'event_attachments',
-          'payments', 'availabilities', 'notifications', 'shifts')
+          'payments', 'availabilities', 'notifications', 'shifts',
+          'recurring_schedules', 'schedule_overrides')
 
 
 def quoted(name):

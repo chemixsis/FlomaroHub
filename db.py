@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, date
 
 from postgres_backend import connect, read_batch, read_connection
 from cloud_config import setting
+from recurring import with_defaults, mark_overrides
 
 
 def now_text():
@@ -966,7 +967,7 @@ def delete_rejected_shift(shift_id, user_id):
         ))
 
 
-def get_schedule_for_user_date(user_id, work_date, work_group=None):
+def _saved_get_schedule_for_user_date(user_id, work_date, work_group=None):
     sql = """
         SELECT * FROM schedules
         WHERE user_id = ?
@@ -986,7 +987,7 @@ def get_schedule_for_user_date(user_id, work_date, work_group=None):
 
 # ---------------- SCHEDULE ----------------
 
-def get_day_schedule(work_date):
+def _saved_get_day_schedule(work_date):
     date_value = (
         work_date.isoformat()
         if hasattr(work_date, "isoformat")
@@ -1061,6 +1062,7 @@ def set_day_schedule(work_date, assignments):
     placeholders = ",".join("?" for _ in user_ids)
 
     with connect() as conn:
+        mark_overrides(conn, user_ids, date_value)
         old_rows = conn.execute(
             f"""
             SELECT user_id, work_group
@@ -1273,7 +1275,7 @@ def update_schedule(
     return True, "Grafik został zaktualizowany."
 
 
-def get_user_schedule(user_id, work_group=None):
+def _saved_get_user_schedule(user_id, work_group=None):
     sql = """
         SELECT * FROM schedules
         WHERE user_id = ?
@@ -1290,7 +1292,7 @@ def get_user_schedule(user_id, work_group=None):
         return conn.execute(sql, params).fetchall()
 
 
-def get_schedules_for_users(
+def _saved_get_schedules_for_users(
     user_ids,
     date_from=None,
     date_to=None,
@@ -1327,7 +1329,7 @@ def get_schedules_for_users(
         return conn.execute(sql, params).fetchall()
 
 
-def get_group_schedules(work_group, date_from=None, date_to=None):
+def _saved_get_group_schedules(work_group, date_from=None, date_to=None):
     if work_group not in ("local", "warehouse"):
         return []
 
@@ -1421,7 +1423,7 @@ def copy_schedule_week(
     return True, f"Skopiowano {copied} dni pracy."
 
 
-def get_all_schedules():
+def _saved_get_all_schedules():
     with read_connection() as conn:
         return conn.execute("""
             SELECT s.*, u.first_name, u.last_name
@@ -1458,6 +1460,7 @@ def delete_schedule(schedule_id):
         )
 
         if existing:
+            mark_overrides(conn, [existing["user_id"]], existing["work_date"])
             _create_notification(
                 conn,
                 existing["user_id"],
@@ -1726,7 +1729,7 @@ def get_report_rows(date_from, date_to, user_ids=None):
 
 def get_admin_overview_rows():
     today = date.today().isoformat()
-    return read_batch({
+    result = read_batch({
         'active': ("""SELECT s.*, u.first_name, u.last_name FROM shifts s
             JOIN users u ON u.id=s.user_id WHERE s.approval_status='active'
             AND s.end_at IS NULL ORDER BY s.start_at""", ()),
@@ -1752,6 +1755,9 @@ def get_admin_overview_rows():
             LEFT JOIN users u ON u.id=ea.user_id LEFT JOIN users m ON m.id=e.manager_id
             WHERE e.event_date>=? GROUP BY e.id ORDER BY e.event_date,e.start_time LIMIT 5""", (today,)),
     })
+    result["schedule"] = with_defaults(result["schedule"], today, today)
+    return result
+
 
 def get_today_active_shifts():
     with read_connection() as conn:
@@ -1765,7 +1771,7 @@ def get_today_active_shifts():
         """).fetchall()
 
 
-def get_today_schedule():
+def _saved_get_today_schedule():
     today = date.today().isoformat()
     with read_connection() as conn:
         return conn.execute("""
@@ -1884,3 +1890,38 @@ def get_event_attachment(viewer_id, attachment_id):
         if row is None or not _can_read_event(conn, viewer_id, row["event_id"]):
             return None
         return row
+
+
+def get_schedule_for_user_date(user_id, work_date, work_group=None):
+    rows = _saved_get_schedule_for_user_date(user_id, work_date, work_group)
+    return with_defaults(rows, work_date, work_date, [user_id], work_group)
+
+
+def get_day_schedule(work_date):
+    rows = _saved_get_day_schedule(work_date)
+    return with_defaults(rows, work_date, work_date)
+
+
+def get_user_schedule(user_id, work_group=None):
+    rows = _saved_get_user_schedule(user_id, work_group)
+    return with_defaults(rows, user_ids=[user_id], group=work_group)
+
+
+def get_schedules_for_users(user_ids, date_from=None, date_to=None, work_group=None):
+    rows = _saved_get_schedules_for_users(user_ids, date_from, date_to, work_group)
+    return with_defaults(rows, date_from, date_to, user_ids, work_group)
+
+
+def get_group_schedules(work_group, date_from=None, date_to=None):
+    rows = _saved_get_group_schedules(work_group, date_from, date_to)
+    return with_defaults(rows, date_from, date_to, group=work_group)
+
+
+def get_all_schedules():
+    rows = _saved_get_all_schedules()
+    return with_defaults(rows)
+
+
+def get_today_schedule():
+    rows = _saved_get_today_schedule()
+    return with_defaults(rows, date.today(), date.today())

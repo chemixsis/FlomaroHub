@@ -143,5 +143,19 @@ SET search_path TO flomaro, pg_catalog;
             FOREIGN KEY (payment_id) REFERENCES payments(id)
         );
         
+
+CREATE TABLE IF NOT EXISTS recurring_schedules (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    starts_on TEXT NOT NULL,
+    ends_on TEXT,
+    work_group TEXT NOT NULL CHECK (work_group IN ('warehouse', 'local')),
+    PRIMARY KEY (user_id, starts_on)
+);
+CREATE TABLE IF NOT EXISTS schedule_overrides (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    work_date TEXT NOT NULL,
+    PRIMARY KEY (user_id, work_date)
+);
+
 REVOKE ALL ON ALL TABLES IN SCHEMA flomaro FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA flomaro FROM PUBLIC;
