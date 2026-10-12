@@ -4,6 +4,7 @@ import csv
 import io
 from uuid import uuid4
 import streamlit as st
+from mobile import install_mobile_support
 
 from db import (
     init_db, add_user, authenticate, get_user, get_users,
@@ -25,7 +26,7 @@ from db import (
     get_user_payments, get_all_payments,
     mark_payment_sent, confirm_payment_received,
     get_today_active_shifts, get_today_schedule,
-    get_upcoming_events, get_user_summary, get_report_rows,
+    get_upcoming_events, get_user_summary, get_report_rows, get_admin_overview_rows,
 )
 from ui import (
     apply_styles, login_keyboard, header, money, minutes_to_text,
@@ -35,12 +36,13 @@ from ui import (
 
 st.set_page_config(
     page_title="FlomaroHUB",
-    page_icon="🟣",
+    page_icon="static/icon-192.png",
     layout="wide",
 )
 
 apply_styles()
 header()
+install_mobile_support()
 
 from cloud_gate import require_access
 from cloud_config import setting
@@ -904,7 +906,6 @@ def employee_panel(user):
         return
     groups = [selected_area] if selected_area else []
     shifts = get_user_shifts(user["id"])
-    payments = get_user_payments(user["id"])
 
     event_only = selected_area == "event"
     regular_area = selected_area in ("warehouse", "local")
@@ -1012,7 +1013,7 @@ def employee_panel(user):
     if clock_groups and not event_only:
         tab_names.append("Grafik pracy")
 
-    unread = count_unread_notifications(user["id"])
+    unread = count_unread_notifications(user["id"]) if not event_only and not regular_area else 0
     notification_tab_name = (
         f"Powiadomienia ({unread})"
         if unread
@@ -1033,120 +1034,128 @@ def employee_panel(user):
         tab_names.append(notification_tab_name)
     tab_names.append("Ustawienia konta")
 
-    tabs = st.tabs(tab_names)
+    tabs = st.tabs(tab_names, key=f"employee_tabs_{selected_area or 'none'}", on_change="rerun")
     tab_map = dict(zip(tab_names, tabs))
 
     if "Eventy" in tab_map:
-        with tab_map["Eventy"]:
-            st.markdown("### Mój kalendarz eventów")
-            event_month_calendar(user["id"], "employee")
+        if tab_map["Eventy"].open:
+            with tab_map["Eventy"]:
+                st.markdown("### Mój kalendarz eventów")
+                event_month_calendar(user["id"], "employee")
 
     if "Grafik pracy" in tab_map:
-        with tab_map["Grafik pracy"]:
-            employee_schedule_calendar(
-                user,
-                groups,
-            )
+        if tab_map["Grafik pracy"].open:
+            with tab_map["Grafik pracy"]:
+                employee_schedule_calendar(
+                    user,
+                    groups,
+                )
 
     if "Dni wolne" in tab_map:
-        with tab_map["Dni wolne"]:
-            own_availability_panel(
-                user, "warehouse" if regular_area else "employee",
-            )
+        if tab_map["Dni wolne"].open:
+            with tab_map["Dni wolne"]:
+                own_availability_panel(
+                    user, "warehouse" if regular_area else "employee",
+                )
 
-    with tab_map["Moje godziny"]:
-        visible = [
-            s for s in shifts
-            if s["approval_status"] != "active"
-        ]
-
-        if not visible:
-            st.info("Nie masz jeszcze zapisanych godzin.")
-        else:
-            st.dataframe(
-                [shift_summary(s) for s in visible],
-                use_container_width=True,
-                hide_index=True,
-            )
-
-            for s in visible:
-                if (
-                    s["approval_status"] == "rejected"
-                    and s["rejection_note"]
-                ):
-                    st.error(
-                        f"Odrzucona zmiana {s['start_at'][:10]}: "
-                        f"{s['rejection_note']}"
-                    )
-
-            rejected = [
-                s for s in visible
-                if s["approval_status"] == "rejected"
-                and s["payment_id"] is None
+    if tab_map["Moje godziny"].open:
+        with tab_map["Moje godziny"]:
+            visible = [
+                s for s in shifts
+                if s["approval_status"] != "active"
             ]
 
-            if rejected:
-                options = {
-                    f"{s['start_at'][:16]} — "
-                    f"{work_group_label(s['work_group'])}": s["id"]
-                    for s in rejected
-                }
-                selected = st.selectbox(
-                    "Usuń odrzuconą zmianę",
-                    list(options.keys()),
+            if not visible:
+                st.info("Nie masz jeszcze zapisanych godzin.")
+            else:
+                st.dataframe(
+                    [shift_summary(s) for s in visible],
+                    use_container_width=True,
+                    hide_index=True,
                 )
 
-                if st.button("Usuń odrzuconą zmianę"):
-                    delete_rejected_shift(
-                        options[selected],
-                        user["id"],
-                    )
-                    st.rerun()
-
-    with tab_map["Moje wypłaty"]:
-        if not payments:
-            st.info("Nie masz jeszcze wypłat.")
-        else:
-            for payment in payments:
-                st.markdown(
-                    f"### {status_icon(payment['status'])} "
-                    f"{status_label(payment['status'])} — "
-                    f"{money(payment['amount'])}"
-                )
-                st.write(
-                    f"Okres: **{payment['period_from']} – "
-                    f"{payment['period_to']}**"
-                )
-
-                if payment["status"] == "sent":
-                    if st.button(
-                        "Potwierdzam otrzymanie przelewu",
-                        key=f"confirm_{payment['id']}",
-                        type="primary",
+                for s in visible:
+                    if (
+                        s["approval_status"] == "rejected"
+                        and s["rejection_note"]
                     ):
-                        confirm_payment_received(
-                            payment["id"],
+                        st.error(
+                            f"Odrzucona zmiana {s['start_at'][:10]}: "
+                            f"{s['rejection_note']}"
+                        )
+
+                rejected = [
+                    s for s in visible
+                    if s["approval_status"] == "rejected"
+                    and s["payment_id"] is None
+                ]
+
+                if rejected:
+                    options = {
+                        f"{s['start_at'][:16]} — "
+                        f"{work_group_label(s['work_group'])}": s["id"]
+                        for s in rejected
+                    }
+                    selected = st.selectbox(
+                        "Usuń odrzuconą zmianę",
+                        list(options.keys()),
+                    )
+
+                    if st.button("Usuń odrzuconą zmianę"):
+                        delete_rejected_shift(
+                            options[selected],
                             user["id"],
                         )
                         st.rerun()
 
-                elif payment["status"] == "received":
-                    st.success("Przelew potwierdzony ✅")
+    if tab_map["Moje wypłaty"].open:
+        with tab_map["Moje wypłaty"]:
+            payments = get_user_payments(user["id"])
+            if not payments:
+                st.info("Nie masz jeszcze wypłat.")
+            else:
+                for payment in payments:
+                    st.markdown(
+                        f"### {status_icon(payment['status'])} "
+                        f"{status_label(payment['status'])} — "
+                        f"{money(payment['amount'])}"
+                    )
+                    st.write(
+                        f"Okres: **{payment['period_from']} – "
+                        f"{payment['period_to']}**"
+                    )
 
-                st.divider()
+                    if payment["status"] == "sent":
+                        if st.button(
+                            "Potwierdzam otrzymanie przelewu",
+                            key=f"confirm_{payment['id']}",
+                            type="primary",
+                        ):
+                            confirm_payment_received(
+                                payment["id"],
+                                user["id"],
+                            )
+                            st.rerun()
+
+                    elif payment["status"] == "received":
+                        st.success("Przelew potwierdzony ✅")
+
+                    st.divider()
 
     if notification_tab_name in tab_map:
-        with tab_map[notification_tab_name]:
-            notification_panel(
+        if tab_map[notification_tab_name].open:
+            with tab_map[notification_tab_name]:
+                notification_panel(
+                    user,
+                    "employee",
+                )
+
+    if tab_map["Ustawienia konta"].open:
+        with tab_map["Ustawienia konta"]:
+            own_pin_change_panel(
                 user,
                 "employee",
             )
-
-    with tab_map["Ustawienia konta"]:
-        own_pin_change_panel(
-            user,
-            "employee",
-        )
 
     if st.button(
         "Wyloguj się",
@@ -1571,17 +1580,13 @@ def manager_panel(user):
 
 def admin_overview(users):
     """Read-only snapshot; outstanding shifts and prepared payments stay separate."""
-    active = get_today_active_shifts()
-    pending = get_pending_shifts()
-    payments = get_all_payments()
-    unpaid = [
-        row for row in get_all_shifts()
-        if row["approval_status"] == "approved" and row["payment_id"] is None
-    ]
-    schedule = get_today_schedule()
-    days_off = get_days_off_for_users(
-        [u["id"] for u in users], date.today(), date.today(),
-    )
+    rows = get_admin_overview_rows()
+    active = rows['active']
+    pending = rows['pending']
+    payments = rows['payments']
+    unpaid = rows['unpaid']
+    schedule = rows['schedule']
+    days_off = rows['days_off']
     off_ids = {row["user_id"] for row in days_off}
     return {
         "active": active,
@@ -1597,7 +1602,7 @@ def admin_overview(users):
             if u["access_level"] != "admin" and not get_render_user_groups(u["id"])
         ],
         "overnight": [row for row in active if row["start_at"][:10] < date.today().isoformat()],
-        "events": [event for event in get_all_events() if event["event_date"] >= date.today().isoformat()][:5],
+        "events": rows["events"],
     }
 
 
@@ -2104,62 +2109,67 @@ def admin_profiles(users, employee=None, show_identity=True):
     c3.metric("Do zatwierdzenia", summary["pending"])
     c4.metric("Potwierdzone wypłaty", money(summary["paid_total"]))
 
-    tabs = st.tabs(["Zmiany", "Wypłaty", "Grafik", "Eventy", "Dni wolne"])
+    tabs = st.tabs(["Zmiany", "Wypłaty", "Grafik", "Eventy", "Dni wolne"], key=f"profile_tabs_{employee['id']}", on_change="rerun")
 
-    with tabs[0]:
-        shifts = get_user_shifts(employee["id"])
-        if not shifts:
-            st.info("Brak zmian.")
-        else:
-            st.dataframe(
-                [shift_summary(s) for s in shifts if s["approval_status"] != "active"],
-                use_container_width=True,
-                hide_index=True,
-            )
+    if tabs[0].open:
+        with tabs[0]:
+            shifts = get_user_shifts(employee["id"])
+            if not shifts:
+                st.info("Brak zmian.")
+            else:
+                st.dataframe(
+                    [shift_summary(s) for s in shifts if s["approval_status"] != "active"],
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
-    with tabs[1]:
-        payments = get_user_payments(employee["id"])
-        if not payments:
-            st.info("Brak wypłat.")
-        else:
-            st.dataframe(
-                [{
-                    "Okres od": p["period_from"],
-                    "Okres do": p["period_to"],
-                    "Kwota": money(p["amount"]),
-                    "Status": status_label(p["status"]),
-                } for p in payments],
-                use_container_width=True,
-                hide_index=True,
-            )
+    if tabs[1].open:
+        with tabs[1]:
+            payments = get_user_payments(employee["id"])
+            if not payments:
+                st.info("Brak wypłat.")
+            else:
+                st.dataframe(
+                    [{
+                        "Okres od": p["period_from"],
+                        "Okres do": p["period_to"],
+                        "Kwota": money(p["amount"]),
+                        "Status": status_label(p["status"]),
+                    } for p in payments],
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
-    with tabs[2]:
-        schedule = get_user_schedule(employee["id"])
-        if not schedule:
-            st.info("Brak grafiku.")
-        else:
-            st.dataframe(
-                [{
-                    "Data": s["work_date"],
-                    "Miejsce": work_group_label(s["work_group"]),
-                    "Uwagi": s["note"] or "",
-                } for s in schedule],
-                use_container_width=True,
-                hide_index=True,
-            )
+    if tabs[2].open:
+        with tabs[2]:
+            schedule = get_user_schedule(employee["id"])
+            if not schedule:
+                st.info("Brak grafiku.")
+            else:
+                st.dataframe(
+                    [{
+                        "Data": s["work_date"],
+                        "Miejsce": work_group_label(s["work_group"]),
+                        "Uwagi": s["note"] or "",
+                    } for s in schedule],
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
-    with tabs[3]:
-        events = get_user_events(employee["id"])
-        if events:
-            st.dataframe([{"Event": e["name"], "Data": e["event_date"], "Godziny": f"{e['start_time']}–{e['end_time']}", "Miejsce": e["location"] or ""} for e in events], use_container_width=True, hide_index=True)
-        else:
-            st.info("Brak przypisanych eventów.")
-    with tabs[4]:
-        days = get_user_days_off(employee["id"])
-        if days:
-            st.dataframe([{"Data": r["availability_date"], "Uwagi": r["note"] or ""} for r in days], use_container_width=True, hide_index=True)
-        else:
-            st.info("Brak zgłoszonych dni wolnych.")
+    if tabs[3].open:
+        with tabs[3]:
+            events = get_user_events(employee["id"])
+            if events:
+                st.dataframe([{"Event": e["name"], "Data": e["event_date"], "Godziny": f"{e['start_time']}–{e['end_time']}", "Miejsce": e["location"] or ""} for e in events], use_container_width=True, hide_index=True)
+            else:
+                st.info("Brak przypisanych eventów.")
+    if tabs[4].open:
+        with tabs[4]:
+            days = get_user_days_off(employee["id"])
+            if days:
+                st.dataframe([{"Data": r["availability_date"], "Uwagi": r["note"] or ""} for r in days], use_container_width=True, hide_index=True)
+            else:
+                st.info("Brak zgłoszonych dni wolnych.")
 
 
 
@@ -2176,24 +2186,27 @@ def set_admin_page(page):
     st.rerun()
 
 
+def select_admin_page(page):
+    st.session_state["admin_page"] = page
+
+
 def admin_navigation():
     with st.container(key="admin_navbar"):
         cols = st.columns(len(ADMIN_PAGES), gap="small")
 
         for col, (page_key, title) in zip(cols, ADMIN_PAGES):
             with col:
-                if st.button(
+                st.button(
                     title,
                     key=f"admin_nav_{page_key}",
                     use_container_width=True,
                     disabled=st.session_state.get("admin_page") == page_key,
-                ):
-                    set_admin_page(page_key)
+                    on_click=select_admin_page, args=(page_key,),
+                )
 
 
 def admin_page_header(page):
-    if st.button("← Panel", key=f"back_from_{page}"):
-        set_admin_page(None)
+    st.button("← Panel", key=f"back_from_{page}", on_click=select_admin_page, args=(None,))
 
 
 def table_selected_index(event):
@@ -2663,7 +2676,7 @@ def admin_payments_section(users):
 
 
 def admin_panel(user):
-    users = get_users()
+    users = get_users() if st.session_state.get("admin_page") not in ("settings", "approvals") else []
     page = st.session_state.get("admin_page")
     valid = {key for key, _ in ADMIN_PAGES} | {"settings"}
 
@@ -2680,14 +2693,13 @@ def admin_panel(user):
         st.markdown('<div class="admin-panel-heading">Panel szefa</div>',
                     unsafe_allow_html=True)
     with settings_col:
-        if st.button(
+        st.button(
             "⚙",
             key="admin_settings_button",
             help="Ustawienia mojego konta",
             disabled=page == "settings",
-        ):
-            st.session_state["admin_page"] = "settings"
-            st.rerun()
+            on_click=select_admin_page, args=("settings",),
+        )
 
     admin_navigation()
 

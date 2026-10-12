@@ -117,7 +117,7 @@ def apply_styles():
         font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
       }
 
-      /* Logowanie: zawsze białe pola i granatowy tekst — również po Enter. */
+      /* All form fields use navy backgrounds and white text, including login. */
       div[data-testid="stForm"] div[data-baseweb="input"],
       div[data-testid="stForm"] div[data-baseweb="input"] > div,
       div[data-testid="stForm"] div[data-baseweb="base-input"],
@@ -126,24 +126,24 @@ def apply_styles():
       div[data-testid="stTextInput"] input:focus,
       div[data-testid="stTextInput"] input:active,
       div[data-testid="stTextInput"] input:hover {
-        background: #FFFFFF !important;
-        background-color: #FFFFFF !important;
-        color: #12385E !important;
-        -webkit-text-fill-color: #12385E !important;
-        caret-color: #12385E !important;
+        background: #12385E !important;
+        background-color: #12385E !important;
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        caret-color: #FFFFFF !important;
       }
 
       .stApp input:-webkit-autofill,
       .stApp input:-webkit-autofill:hover,
       .stApp input:-webkit-autofill:focus,
       .stApp input:-webkit-autofill:active {
-        -webkit-box-shadow: 0 0 0 1000px #FFFFFF inset !important;
-        -webkit-text-fill-color: #12385E !important;
-        caret-color: #12385E !important;
+        -webkit-box-shadow: 0 0 0 1000px #12385E inset !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        caret-color: #FFFFFF !important;
       }
 
       div[data-testid="stTextInput"] input::placeholder {
-        color: #607993 !important;
+        color: #C8D2DC !important;
         opacity: 1;
       }
 
@@ -270,7 +270,7 @@ def apply_styles():
         color: inherit !important;
       }
 
-      /* Inputs - warm cream instead of bright white */
+      /* Consistent navy fields */
       div[data-baseweb="input"],
       div[data-baseweb="select"] > div,
       textarea,
@@ -278,15 +278,15 @@ def apply_styles():
       div[data-testid="stNumberInput"] input,
       div[data-testid="stDateInput"] input,
       div[data-testid="stTimeInput"] input {
-        background: var(--flomaro-cream) !important;
-        color: var(--flomaro-navy) !important;
+        background: var(--flomaro-navy-2) !important;
+        color: #FFFFFF !important;
         border-radius: 11px !important;
       }
 
       div[data-baseweb="input"]:focus-within {
         border-color: var(--flomaro-yellow) !important;
         box-shadow: 0 0 0 1px var(--flomaro-yellow) !important;
-        background: #FFFFFF !important;
+        background: #12385E !important;
       }
 
       /* Forms / panels */
@@ -893,6 +893,44 @@ def apply_styles():
       .stApp .st-key-admin_event_editor [data-testid="stForm"] input:-webkit-autofill {
         -webkit-box-shadow: 0 0 0 1000px #12385E inset !important;
         -webkit-text-fill-color: #FFFFFF !important;
+      }
+
+      /* Shared field styling, including popovers rendered outside .stApp. */
+      .stApp [data-baseweb="input"],
+      .stApp [data-baseweb="input"] > div,
+      .stApp [data-baseweb="base-input"],
+      .stApp [data-baseweb="textarea"],
+      .stApp [data-baseweb="select"] > div,
+      .stApp input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+      .stApp textarea, .stApp select,
+      .stApp [data-testid="stFileUploaderDropzone"],
+      [data-baseweb="popover"] [data-baseweb="menu"],
+      [data-baseweb="popover"] [data-baseweb="calendar"],
+      [role="listbox"], [role="option"] {
+        background-color: #12385E !important;
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        caret-color: #FFFFFF !important;
+      }
+      .stApp [data-baseweb="select"] *,
+      .stApp [data-testid="stFileUploaderDropzoneInstructions"] *,
+      [role="listbox"] *,
+      [data-baseweb="calendar"] * {
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+      }
+      .stApp [data-baseweb="tag"] { background-color: #19476F !important; }
+      .stApp input::placeholder, .stApp textarea::placeholder {
+        color: #C8D2DC !important; -webkit-text-fill-color: #C8D2DC !important; opacity: 1;
+      }
+      .stApp input:disabled, .stApp textarea:disabled { opacity: .7; }
+      [role="option"]:hover { background-color: #19476F !important; }
+      [role="option"][aria-selected="true"],
+      [role="option"][aria-selected="true"] *,
+      [data-baseweb="calendar"] [aria-selected="true"],
+      [data-baseweb="calendar"] [aria-selected="true"] * {
+        background-color: #E7B843 !important;
+        color: #0D2947 !important; -webkit-text-fill-color: #0D2947 !important;
       }
     </style>
     """, unsafe_allow_html=True)

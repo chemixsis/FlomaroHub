@@ -137,3 +137,13 @@ def get_pool():
 def connect():
     pool = get_pool()
     return Connection(pool.getconn(), release=pool.putconn)
+
+
+def read_batch(queries):
+    """Send independent SELECTs together; fetch only after the pipeline finishes."""
+    if any(not sql.lstrip().upper().startswith('SELECT ') for sql, _ in queries.values()):
+        raise ValueError('read_batch accepts SELECT queries only')
+    with connect() as conn:
+        with conn.raw.pipeline():
+            results = {name: conn.execute(sql, params) for name, (sql, params) in queries.items()}
+        return {name: result.fetchall() for name, result in results.items()}

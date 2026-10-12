@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from datetime import datetime, timedelta, date
 
-from postgres_backend import connect
+from postgres_backend import connect, read_batch
 from cloud_config import setting
 
 
@@ -1723,6 +1723,35 @@ def get_report_rows(date_from, date_to, user_ids=None):
 
 
 # ---------------- DASHBOARD / PROFILE ----------------
+
+def get_admin_overview_rows():
+    today = date.today().isoformat()
+    return read_batch({
+        'active': ("""SELECT s.*, u.first_name, u.last_name FROM shifts s
+            JOIN users u ON u.id=s.user_id WHERE s.approval_status='active'
+            AND s.end_at IS NULL ORDER BY s.start_at""", ()),
+        'pending': ("""SELECT s.*, u.first_name, u.last_name FROM shifts s
+            JOIN users u ON u.id=s.user_id WHERE s.approval_status='pending'
+            ORDER BY s.start_at""", ()),
+        'payments': ("""SELECT p.*, u.first_name, u.last_name FROM payments p
+            JOIN users u ON u.id=p.user_id WHERE p.status IN ('created','sent')
+            ORDER BY p.created_at DESC, p.id DESC""", ()),
+        'unpaid': ("""SELECT s.*, u.first_name, u.last_name, NULL AS payment_status FROM shifts s
+            JOIN users u ON u.id=s.user_id WHERE s.approval_status='approved'
+            AND s.payment_id IS NULL ORDER BY s.start_at DESC""", ()),
+        'schedule': ("""SELECT s.*, u.first_name, u.last_name FROM schedules s
+            JOIN users u ON u.id=s.user_id WHERE s.work_date=?
+            ORDER BY s.start_time, u.last_name, u.first_name""", (today,)),
+        'days_off': ("""SELECT a.*, u.first_name, u.last_name FROM availabilities a
+            JOIN users u ON u.id=a.user_id WHERE u.active=1
+            AND a.availability_type='unavailable' AND a.availability_date=?
+            ORDER BY a.availability_date, u.last_name, u.first_name""", (today,)),
+        'events': ("""SELECT e.*, GROUP_CONCAT(u.first_name || ' ' || u.last_name, ', ') AS people,
+            m.first_name AS manager_first_name, m.last_name AS manager_last_name
+            FROM events e LEFT JOIN event_assignments ea ON ea.event_id=e.id
+            LEFT JOIN users u ON u.id=ea.user_id LEFT JOIN users m ON m.id=e.manager_id
+            WHERE e.event_date>=? GROUP BY e.id ORDER BY e.event_date,e.start_time LIMIT 5""", (today,)),
+    })
 
 def get_today_active_shifts():
     with connect() as conn:

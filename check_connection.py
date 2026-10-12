@@ -16,6 +16,7 @@ def main():
         db.get_today_active_shifts()
         db.get_today_schedule()
         db.get_upcoming_events()
+        db.get_admin_overview_rows()
         db.get_report_rows(date.today() - timedelta(days=31), date.today())
     except Exception as exc:
         print('Sprawdzenie nie powiodło się. Typ błędu:', type(exc).__name__)
