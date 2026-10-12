@@ -2708,27 +2708,19 @@ def admin_panel(user):
         page = None
         st.session_state["admin_page"] = None
 
-    title_col, settings_col = st.columns(
-        [6, 1],
-        gap="small",
-        vertical_alignment="center",
-    )
-    with title_col:
-        st.markdown('<div class="admin-panel-heading">Panel szefa</div>',
-                    unsafe_allow_html=True)
-    with settings_col:
-        st.button(
-            "⚙",
-            key="admin_settings_button",
-            help="Ustawienia mojego konta",
-            disabled=page == "settings",
-            on_click=select_admin_page, args=("settings",),
-        )
+    st.markdown('<div class="admin-panel-heading">Panel szefa</div>',
+                unsafe_allow_html=True)
 
     admin_navigation()
 
     if page is None:
         admin_dashboard(users, user)
+
+        st.button(
+            "Ustawienia konta",
+            key="admin_account_settings",
+            on_click=select_admin_page, args=("settings",),
+        )
 
         if st.button(
             "Wyloguj się",
