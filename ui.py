@@ -962,6 +962,19 @@ def apply_styles():
       }
       .stApp.stApp.stApp.stApp :is([data-baseweb="input"], [data-baseweb="select"],
         [data-testid="stFileUploaderDropzone"]) svg { color: #FFFFFF !important; }
+
+      .roster-color-coded .roster-warehouse {
+        background: #175747; border-left: 4px solid #6AD6B0; color: #FFFFFF;
+      }
+      .roster-color-coded .roster-local {
+        background: #54357B; border-left: 4px solid #C7A2F3; color: #FFFFFF;
+      }
+      .roster-color-coded .roster-event {
+        background: #E7B843; border-left: 4px solid #FFE39B; color: #0D2947;
+      }
+      .roster-color-coded .roster-event * { color: #0D2947; }
+      .roster-legend {display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 16px;}
+      .roster-legend .roster-place {font-size:.85rem; font-weight:700; margin:0; padding:8px 12px;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -1010,6 +1023,7 @@ def render_roster_calendar(
     days_off_rows=None,
     show_days_off=False,
     event_rows=None,
+    color_coded=False,
 ):
     """
     Monthly visual roster calendar.
@@ -1060,7 +1074,14 @@ def render_roster_calendar(
         "Nd",
     ]
 
-    html = '<div class="roster-calendar">'
+    html = '<div class="roster-color-coded">' if color_coded else '<div>'
+    if color_coded:
+        html += ('<div class="roster-legend" role="list" aria-label="Kolory grafiku">'
+                 '<span class="roster-place roster-event" role="listitem">Eventy</span>'
+                 '<span class="roster-place roster-warehouse" role="listitem">Magazyn</span>'
+                 '<span class="roster-place roster-local" role="listitem">Lokal</span>'
+                 '</div>')
+    html += '<div class="roster-calendar">' 
 
     for weekday in weekday_names:
         html += (
@@ -1153,7 +1174,7 @@ def render_roster_calendar(
             'roster-calendar-empty"></div>'
         )
 
-    html += '</div>'
+    html += '</div></div>'
 
     st.markdown(
         html,

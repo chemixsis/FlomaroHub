@@ -1741,6 +1741,7 @@ def admin_calendar(users):
         anchor,
         days_off_rows=month_days_off,
         show_days_off=True,
+        color_coded=True,
         event_rows=[e for e in get_all_events() if month_start.isoformat() <= e["event_date"] <= month_end.isoformat()],
     )
 
