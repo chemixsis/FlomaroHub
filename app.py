@@ -44,9 +44,7 @@ apply_styles()
 header()
 install_mobile_support()
 
-from cloud_gate import require_access
 from cloud_config import setting
-require_access()
 if setting("DATA_READY", False) is not True:
     st.info("Trwa przygotowanie danych aplikacji. Właściciel musi dokończyć konfigurację.")
     st.stop()
