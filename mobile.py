@@ -33,6 +33,15 @@ MOBILE_HTML = """
   try { if (window.top.document) installDocument = window.top.document; }
   catch (_) { /* Cross-origin hosts retain metadata inside the app only. */ }
   const head = installDocument.head;
+  installDocument.title = 'FlomaroHUB';
+  // The cloud shell may update the page title after Streamlit renders.
+  const titleElement = head.querySelector('title');
+  if (titleElement && !titleElement.dataset.flomaroObserved) {
+    titleElement.dataset.flomaroObserved = 'true';
+    new MutationObserver(() => {
+      if (installDocument.title !== 'FlomaroHUB') installDocument.title = 'FlomaroHUB';
+    }).observe(titleElement, {childList:true, characterData:true, subtree:true});
+  }
   const assetBase = new URL('app/static/', window.location.href);
   function link(rel, href, type) {
     let element = head.querySelector('link[rel="' + rel + '"]');
@@ -46,8 +55,10 @@ MOBILE_HTML = """
     if (!element) {element = installDocument.createElement('meta'); head.appendChild(element);}
     element.name = name; element.content = content;
   }
-  link('manifest', new URL('manifest.json', assetBase).href, 'application/manifest+json');
-  link('apple-touch-icon', new URL('apple-touch-icon.png', assetBase).href);
+  link('manifest', new URL('manifest.json?v=20261012b', assetBase).href, 'application/manifest+json');
+  link('apple-touch-icon', new URL('apple-touch-icon.png?v=20261012b', assetBase).href);
+  link('icon', new URL('icon-192.png?v=20261012b', assetBase).href, 'image/png');
+  meta('application-name', 'FlomaroHUB');
   meta('apple-mobile-web-app-title', 'FlomaroHUB');
   meta('apple-mobile-web-app-capable', 'yes');
   meta('mobile-web-app-capable', 'yes');

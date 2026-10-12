@@ -932,6 +932,36 @@ def apply_styles():
         background-color: #E7B843 !important;
         color: #0D2947 !important; -webkit-text-fill-color: #0D2947 !important;
       }
+
+      [role="listbox"], [role="option"],
+      [data-baseweb="popover"] [data-baseweb="menu"],
+      [data-baseweb="popover"] [data-baseweb="calendar"] {
+        background-color: #0D2947 !important;
+      }
+      /* Whole controls, including inner wrappers and their icon buttons. */
+      .stApp.stApp.stApp.stApp :is([data-baseweb="input"], [data-baseweb="base-input"],
+        [data-baseweb="textarea"], [data-baseweb="select"],
+        [data-testid="stFileUploaderDropzone"]) ,
+      .stApp.stApp.stApp.stApp :is([data-baseweb="input"], [data-baseweb="base-input"],
+        [data-baseweb="textarea"], [data-baseweb="select"],
+        [data-testid="stFileUploaderDropzone"]) :is(div, input, textarea, button, span),
+      .stApp.stApp.stApp.stApp :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
+        background: #0D2947 !important;
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        caret-color: #FFFFFF !important;
+      }
+      .stApp.stApp.stApp.stApp :is(input, textarea)::placeholder {
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        opacity: 1 !important;
+      }
+      .stApp.stApp.stApp.stApp input:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0 1000px #0D2947 inset !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+      }
+      .stApp.stApp.stApp.stApp :is([data-baseweb="input"], [data-baseweb="select"],
+        [data-testid="stFileUploaderDropzone"]) svg { color: #FFFFFF !important; }
     </style>
     """, unsafe_allow_html=True)
 
