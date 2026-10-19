@@ -55,9 +55,9 @@ MOBILE_HTML = """
     if (!element) {element = installDocument.createElement('meta'); head.appendChild(element);}
     element.name = name; element.content = content;
   }
-  link('manifest', new URL('manifest.json?v=20261012b', assetBase).href, 'application/manifest+json');
-  link('apple-touch-icon', new URL('apple-touch-icon.png?v=20261012b', assetBase).href);
-  link('icon', new URL('icon-192.png?v=20261012b', assetBase).href, 'image/png');
+  link('manifest', new URL('manifest.json?v=20261019icon', assetBase).href, 'application/manifest+json');
+  link('apple-touch-icon', new URL('apple-touch-icon.png?v=20261019icon', assetBase).href);
+  link('icon', new URL('icon-192.png?v=20261019icon', assetBase).href, 'image/png');
   meta('application-name', 'FlomaroHUB');
   meta('apple-mobile-web-app-title', 'FlomaroHUB');
   meta('apple-mobile-web-app-capable', 'yes');
@@ -76,3 +76,4 @@ MOBILE_HTML = """
 def install_mobile_support():
     """Available before either login gate; no extra database work on reruns."""
     st.html(MOBILE_HTML, unsafe_allow_javascript=True)
+

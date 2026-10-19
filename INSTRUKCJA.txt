@@ -1,0 +1,7 @@
+Ikona wygenerowana wbudowanym narzędziem image_gen.
+Prompt: Square FlomaroHUB app icon, dark navy background #0D2947, white bold Flomaro above gold #E7B843 HUB, centered mobile-safe typography. No crown, no device, no border.
+
+Wgraj do głównego katalogu GitHub plik mobile.py oraz całe foldery static i .streamlit.
+Przeciągnij foldery z Eksploratora do formularza Upload files, aby zachować ich nazwy i strukturę.
+Nie wgrywaj samego ZIP. Nie zmieniaj Secrets ani bazy danych.
+Po aktualizacji uruchom ponownie Streamlit. Jeśli skrót telefonu nadal ma starą ikonę, usuń sam skrót i ponownie dodaj stronę do ekranu głównego.
