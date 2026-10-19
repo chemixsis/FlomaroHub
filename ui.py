@@ -1106,24 +1106,26 @@ def apply_styles():
         border-radius: 12px;
         overflow: hidden;
       }
-      :is(.st-key-clickable_calendar,.st-key-event_calendar_grid,.st-key-regular_calendar_grid) {
-        overflow-x: auto;
-        padding-bottom: 12px;
-        scrollbar-width: thin;
-        scrollbar-color: #7896B2 #102D4B;
+      [class*="_approval_people"] [data-testid="stButton"] button {
+        min-height: 130px !important;
+        width: 100%;
+        border: 1px solid #58718B !important;
+        background: #12314F !important;
+        color: #FFFFFF !important;
+        text-align: left;
+        justify-content: flex-start;
+        padding: 20px !important;
       }
-      :is(.st-key-clickable_calendar,.st-key-event_calendar_grid,.st-key-regular_calendar_grid)
-        [data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important; min-width: 770px; gap: 8px;
+      [class*="_approval_people"] button p {
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
+        white-space: pre-line;
+        font-weight: 700;
       }
-      :is(.st-key-clickable_calendar,.st-key-event_calendar_grid,.st-key-regular_calendar_grid)
-        [data-testid="stColumn"] {
-        flex: 1 1 0 !important; min-width: 102px !important; width: 0 !important;
+      [class*="_approval_people"] button:hover { border-color: #E7B843 !important; }
+      [class*="_approval_card_"] {
+        border-radius: 14px;
       }
-      .st-key-clickable_calendar [data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 10px;
-      }
-      .st-key-clickable_calendar button { min-height: 44px; padding: .5rem !important; }
       [role="dialog"] { border: 1px solid #58718B; border-radius: 16px; }
       @media (max-width: 640px) {
         .block-container { padding: 3.8rem 1rem 2rem; }

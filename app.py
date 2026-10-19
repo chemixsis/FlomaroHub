@@ -1166,72 +1166,103 @@ def employee_panel(user):
 
 def approval_list(user, prefix, show_money):
     pending = get_pending_shifts()
-
+    selection_key = f"{prefix}_approval_person"
     if not pending:
+        st.session_state.pop(selection_key, None)
         st.success("Brak zmian oczekujących na zatwierdzenie.")
         return
 
+    people = {}
     for shift in pending:
-        st.markdown(
-            f"### {shift['first_name']} {shift['last_name']}"
-        )
-        st.caption(
-            f"{work_group_label(shift['work_group'])} • "
-            f"{scheduled_vs_actual(shift)}"
-        )
-        st.write(
-            f"Rzeczywisty czas: **{minutes_to_text(shift['actual_minutes'])}**  |  "
-            f"Rozliczenie: **{minutes_to_text(shift['actual_minutes'])}**"
-        )
+        people.setdefault(shift["user_id"], []).append(shift)
+    selected = st.session_state.get(selection_key)
+    if selected not in people:
+        st.session_state.pop(selection_key, None)
+        selected = None
 
-        if show_money:
-            st.write(
-                f"Stawka: **{money(shift['hourly_rate'])}/h**  |  "
-                f"Kwota: **{money(shift['amount'])}**"
-            )
+    if selected is None:
+        st.caption("Wybierz osobę, aby sprawdzić i zatwierdzić jej zmiany.")
+        st.write(f"**Osoby: {len(people)}** · Zmiany do zatwierdzenia: **{len(pending)}**")
+        ordered = sorted(people.items(), key=lambda item: (
+            item[1][0]['last_name'].casefold(), item[1][0]['first_name'].casefold(), item[0]))
+        with st.container(key=f"{prefix}_approval_people"):
+            for offset in range(0, len(ordered), 3):
+                for col, (person_id, shifts) in zip(st.columns(3), ordered[offset:offset + 3]):
+                    with col:
+                        person = shifts[0]
+                        duration = minutes_to_text(sum(int(s['actual_minutes'] or 0) for s in shifts))
+                        label = (f"{person['first_name']} {person['last_name']}"
+                                 f"\n\nZmiany: {len(shifts)} · {duration}")
+                        if st.button(label, key=f"{prefix}_approval_tile_{person_id}",
+                                     use_container_width=True):
+                            st.session_state[selection_key] = person_id
+                            st.rerun()
+        return
 
-        if shift["correction_note"]:
-            st.info(
-                f"Korekta: {shift['correction_note']}"
-            )
+    if st.button("← Wszyscy pracownicy", key=f"{prefix}_approval_back"):
+        st.session_state.pop(selection_key, None)
+        st.rerun()
+    shifts = people[selected]
+    person = shifts[0]
+    st.subheader(f"{person['first_name']} {person['last_name']}")
+    st.caption(f"Zmiany oczekujące: {len(shifts)} · Łączny czas: "
+               f"{minutes_to_text(sum(int(s['actual_minutes'] or 0) for s in shifts))}")
 
-        correction_form(
-            shift,
-            user["id"],
-            prefix,
-        )
-
-        rejection_note = st.text_input(
-            "Powód odrzucenia (opcjonalnie)",
-            key=f"{prefix}_reject_note_{shift['id']}",
-        )
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-            if st.button(
-                "Zatwierdź",
-                key=f"{prefix}_approve_{shift['id']}",
-                type="primary",
-                use_container_width=True,
-            ):
-                approve_shift(shift["id"], user["id"])
-                st.rerun()
-
-        with c2:
-            if st.button(
-                "Odrzuć",
-                key=f"{prefix}_reject_{shift['id']}",
-                use_container_width=True,
-            ):
-                reject_shift(
-                    shift["id"],
-                    user["id"],
-                    rejection_note,
+    for shift in shifts:
+        start = datetime.strptime(shift['start_at'], '%Y-%m-%d %H:%M:%S')
+        end = datetime.strptime(shift['end_at'], '%Y-%m-%d %H:%M:%S')
+        with st.container(border=True, key=f"{prefix}_approval_card_{shift['id']}"):
+            st.markdown(f"### {start.strftime('%d.%m.%Y')}")
+            st.caption(f"{work_group_label(shift['work_group'])} · Oczekuje na zatwierdzenie")
+            end_label = end.strftime('%H:%M') if start.date() == end.date() else end.strftime('%d.%m.%Y %H:%M')
+            st.markdown(f"**{start.strftime('%H:%M')} – {end_label}**")
+            columns = st.columns(3 if show_money else 1)
+            columns[0].metric("Przepracowany czas", minutes_to_text(shift['actual_minutes']))
+            if show_money:
+                columns[1].metric("Stawka / godz.", money(shift['hourly_rate']))
+                columns[2].metric("Do rozliczenia", money(shift['amount']))
+            st.caption(scheduled_vs_actual(shift))
+            if shift["correction_note"]:
+                st.info(
+                    f"Korekta: {shift['correction_note']}"
                 )
-                st.rerun()
 
-        st.divider()
+            correction_form(
+                shift,
+                user["id"],
+                prefix,
+            )
+
+            rejection_note = st.text_input(
+                "Powód odrzucenia (opcjonalnie)",
+                key=f"{prefix}_reject_note_{shift['id']}",
+            )
+
+            c1, c2 = st.columns(2)
+
+            with c1:
+                if st.button(
+                    "Zatwierdź",
+                    key=f"{prefix}_approve_{shift['id']}",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    approve_shift(shift["id"], user["id"])
+                    st.rerun()
+
+            with c2:
+                if st.button(
+                    "Odrzuć",
+                    key=f"{prefix}_reject_{shift['id']}",
+                    use_container_width=True,
+                ):
+                    reject_shift(
+                        shift["id"],
+                        user["id"],
+                        rejection_note,
+                    )
+                    st.rerun()
+
 
 
 def manager_panel(user):
