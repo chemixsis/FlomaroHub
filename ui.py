@@ -976,6 +976,172 @@ def apply_styles():
       .roster-color-coded .roster-event * { color: #0D2947; }
       .roster-legend {display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 16px;}
       .roster-legend .roster-place {font-size:.85rem; font-weight:700; margin:0; padding:8px 12px;}
+
+      /* Visual refresh: layout and presentation only; widget behavior is unchanged. */
+      .stApp { background: #0B223B; }
+      .block-container {
+        max-width: 1240px;
+        padding: 4.4rem 2rem 3rem;
+      }
+      .block-container:has(.st-key-login_email) { max-width: 660px; }
+      .brand { font-size: clamp(2rem, 3.2vw, 2.65rem); font-weight: 800; }
+      .brand-sub { margin-bottom: 20px; line-height: 1.6; letter-spacing: .015em; }
+      .stApp h2 { font-size: clamp(1.5rem, 2.6vw, 1.85rem) !important; }
+      .stApp h3 { font-size: clamp(1.2rem, 2vw, 1.45rem) !important; line-height: 1.4; }
+      .stApp p { line-height: 1.6; }
+      .stApp [data-testid="stWidgetLabel"] p { color: #E9EFF6; font-weight: 600; }
+      .stApp [data-testid="stCaptionContainer"] p { color: #BACBDD; font-size: .85rem; }
+      .stApp hr { border-color: #29435F; margin: 1.25rem 0; }
+      .stApp [data-testid="stForm"] {
+        padding: 1.25rem;
+        border: 1px solid #36516D;
+        border-radius: 16px;
+        background: #102D4B;
+      }
+      .stApp :is([data-baseweb="input"], [data-baseweb="select"] > div,
+        [data-baseweb="textarea"]) {
+        border: 1px solid #58718B !important;
+        border-radius: 10px !important;
+      }
+      .stApp :is([data-baseweb="input"], [data-baseweb="select"] > div,
+        [data-baseweb="textarea"]):focus-within {
+        outline: 2px solid #F1C963;
+        outline-offset: 2px;
+      }
+      .stApp :is(input,textarea) { font-size: 1rem !important; line-height: 1.5; }
+      .stApp div[data-testid="stButton"] > button,
+      .stApp div[data-testid="stFormSubmitButton"] > button {
+        min-height: 46px;
+        padding: .65rem 1rem;
+        border-radius: 10px;
+        font-weight: 700;
+        box-shadow: none;
+      }
+      .stApp button:hover { transform: none !important; }
+      .stApp :is(button,a,summary):focus-visible {
+        outline: 3px solid #F1C963 !important;
+        outline-offset: 3px;
+      }
+      .stApp button:disabled { cursor: default; }
+      .stApp button[kind^="primary"],
+      .stApp button[kind^="primary"] * {
+        color: #0D2947 !important;
+        -webkit-text-fill-color: #0D2947 !important;
+      }
+      .st-key-employee_start_shift button,
+      .st-key-employee_end_shift button {
+        min-height: 54px !important;
+        border: 1px solid #7896B2 !important;
+        background: #0D2947 !important;
+      }
+      .st-key-employee_start_shift button *,
+      .st-key-employee_end_shift button * {
+        color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important;
+        font-weight: 800 !important;
+      }
+      .stApp [data-testid="stMetric"],
+      .st-key-admin_overview [data-testid="stMetric"] {
+        background: #12314F;
+        border: 1px solid #36516D;
+        border-top: 3px solid #E7B843;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: none;
+      }
+      .stApp [data-testid="stMetricValue"] {
+        font-variant-numeric: tabular-nums;
+        font-size: clamp(1.35rem, 2.4vw, 2rem);
+        overflow-wrap: anywhere;
+      }
+      .stApp [data-testid="stExpander"] {
+        border: 1px solid #36516D;
+        border-radius: 12px;
+        background: #102D4B;
+        overflow: visible;
+      }
+      .stApp [data-testid="stExpander"] summary {
+        min-height: 48px;
+        padding: .75rem 1rem;
+        font-weight: 700;
+      }
+      .stApp [data-baseweb="tab-list"] {
+        gap: 6px;
+        padding: 6px;
+        background: #102D4B;
+        border: 1px solid #36516D;
+        border-radius: 12px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #7896B2 #102D4B;
+      }
+      .stApp [data-baseweb="tab-list"] [role="tab"] {
+        min-height: 44px; flex-shrink: 0;
+        padding: .55rem .9rem;
+        border-radius: 8px;
+        white-space: nowrap;
+      }
+      .stApp [role="tab"][aria-selected="true"],
+      .stApp [role="tab"][aria-selected="true"] * {
+        background: #E7B843 !important;
+        color: #0D2947 !important;
+        -webkit-text-fill-color: #0D2947 !important;
+        font-weight: 800 !important;
+      }
+      .st-key-admin_navbar {
+        padding: 10px;
+        background: #102D4B;
+        border: 1px solid #36516D;
+        border-radius: 14px;
+      }
+      .st-key-admin_navbar div[class*="st-key-admin_nav_"] button {
+        min-height: 52px;
+        padding: 10px 8px;
+        background: #173A5B;
+        border-color: #46617B;
+        border-radius: 9px;
+        font-size: .95rem;
+      }
+      .stApp [data-testid="stDataFrame"] {
+        border: 1px solid #36516D;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      :is(.st-key-clickable_calendar,.st-key-event_calendar_grid,.st-key-regular_calendar_grid) {
+        overflow-x: auto;
+        padding-bottom: 12px;
+        scrollbar-width: thin;
+        scrollbar-color: #7896B2 #102D4B;
+      }
+      :is(.st-key-clickable_calendar,.st-key-event_calendar_grid,.st-key-regular_calendar_grid)
+        [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important; min-width: 770px; gap: 8px;
+      }
+      :is(.st-key-clickable_calendar,.st-key-event_calendar_grid,.st-key-regular_calendar_grid)
+        [data-testid="stColumn"] {
+        flex: 1 1 0 !important; min-width: 102px !important; width: 0 !important;
+      }
+      .st-key-clickable_calendar [data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 10px;
+      }
+      .st-key-clickable_calendar button { min-height: 44px; padding: .5rem !important; }
+      [role="dialog"] { border: 1px solid #58718B; border-radius: 16px; }
+      @media (max-width: 640px) {
+        .block-container { padding: 3.8rem 1rem 2rem; }
+        .brand-sub { font-size: .8rem; margin-bottom: 12px; }
+        .stApp [data-testid="stForm"] { padding: 1rem; border-radius: 12px; }
+        .stApp [data-testid="stMetric"] { padding: 12px 14px; }
+        .st-key-admin_navbar { padding: 8px; }
+        .st-key-admin_navbar div[class*="st-key-admin_nav_"] button {
+          min-height: 48px; font-size: .9rem;
+        }
+        .stApp [data-baseweb="tab-list"] [role="tab"] { padding: .5rem .75rem; }
+        [role="dialog"] { max-width: calc(100vw - 24px) !important; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .stApp *, .stApp *::before, .stApp *::after {
+          animation: none !important; transition: none !important;
+        }
+      }
     </style>
     """, unsafe_allow_html=True)
 
