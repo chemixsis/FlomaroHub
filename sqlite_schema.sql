@@ -174,3 +174,11 @@ CREATE TABLE IF NOT EXISTS payroll_migration_backup (
  shift_id INTEGER PRIMARY KEY, actual_minutes INTEGER, billable_hours DOUBLE PRECISION,
  amount DOUBLE PRECISION
 );
+
+CREATE TABLE IF NOT EXISTS schedule_proposals (
+ id TEXT PRIMARY KEY,author_id INTEGER NOT NULL REFERENCES users(id),work_date TEXT NOT NULL,
+ assignments TEXT NOT NULL,baseline TEXT NOT NULL,note TEXT NOT NULL,status TEXT NOT NULL,
+ created_at TEXT NOT NULL,reviewer_id INTEGER REFERENCES users(id),reviewed_at TEXT,
+ decision_note TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS proposal_status_idx ON schedule_proposals(status,created_at);

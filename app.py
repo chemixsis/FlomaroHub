@@ -6,6 +6,7 @@ from uuid import uuid4
 import streamlit as st
 from mobile import install_mobile_support
 from recurring import current_rule, save_rule
+from proposal_panels import proposals_panel
 from payroll import total_amount, total_due, week_bounds, row_amount
 from app_panels import start_delivery_worker, report_problem_panel, weekly_panel, delivery_admin_panel
 
@@ -1048,6 +1049,7 @@ def employee_panel(user):
     if "Grafik pracy" in tab_map:
         if tab_map["Grafik pracy"].open:
             with tab_map["Grafik pracy"]:
+                proposals_panel(user)
                 employee_schedule_calendar(
                     user,
                     groups,
@@ -2721,6 +2723,7 @@ def admin_panel(user):
         admin_employee_accounts(users)
 
     elif page == "schedule":
+        proposals_panel(user, admin=True)
         admin_calendar(users)
         with st.expander("Lista zgłoszonych dni wolnych"):
             admin_availability(users)

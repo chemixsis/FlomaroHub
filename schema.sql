@@ -180,5 +180,14 @@ CREATE TABLE IF NOT EXISTS payroll_migration_backup (
 
 ALTER TABLE shifts ALTER COLUMN billable_hours TYPE DOUBLE PRECISION;
 
+
+CREATE TABLE IF NOT EXISTS schedule_proposals (
+ id TEXT PRIMARY KEY,author_id INTEGER NOT NULL REFERENCES users(id),work_date TEXT NOT NULL,
+ assignments TEXT NOT NULL,baseline TEXT NOT NULL,note TEXT NOT NULL,status TEXT NOT NULL,
+ created_at TEXT NOT NULL,reviewer_id INTEGER REFERENCES users(id),reviewed_at TEXT,
+ decision_note TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS proposal_status_idx ON schedule_proposals(status,created_at);
+
 REVOKE ALL ON ALL TABLES IN SCHEMA flomaro FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA flomaro FROM PUBLIC;

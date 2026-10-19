@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent
 TABLES = ('users', 'work_groups', 'user_work_groups', 'registration_requests',
           'schedules', 'events', 'event_assignments', 'event_attachments',
           'payments', 'availabilities', 'notifications', 'shifts',
-          'recurring_schedules', 'schedule_overrides', 'delivery_outbox', 'support_tickets', 'app_migrations', 'payroll_migration_backup')
+          'recurring_schedules', 'schedule_overrides', 'delivery_outbox', 'support_tickets', 'app_migrations', 'payroll_migration_backup', 'schedule_proposals')
 
 
 def quoted(name):

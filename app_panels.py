@@ -22,7 +22,7 @@ def start_delivery_worker():
 
 def report_problem_panel(user):
     with st.expander('Zgłoś problem'):
-        st.caption('Zgłoszenie trafi do Ariny: arinametluk@gmail.com. Opisz, co się stało; nie wpisuj PIN-u ani haseł.')
+        st.caption('Zgłoszenie trafi do Ari: arinametluk@gmail.com. Opisz, co się stało; nie wpisuj PIN-u ani haseł.')
         if 'support_token' not in st.session_state: st.session_state['support_token']=str(uuid4())
         with st.form('report_problem_form',clear_on_submit=True):
             subject=st.text_input('Temat problemu',max_chars=120)

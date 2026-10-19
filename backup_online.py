@@ -18,7 +18,7 @@ def main():
         with connect() as source, destination:
             source.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
             for table in TABLES:
-                if table in {'delivery_outbox', 'support_tickets', 'app_migrations', 'payroll_migration_backup'}:
+                if table in {'delivery_outbox', 'support_tickets', 'app_migrations', 'payroll_migration_backup', 'schedule_proposals'}:
                     if source.execute('SELECT to_regclass(?) AS name', ('flomaro.' + table,)).fetchone()['name'] is None:
                         continue  # Also supports a snapshot before this update creates the new tables.
                 rows = source.execute(f'SELECT * FROM {quoted(table)}').fetchall()

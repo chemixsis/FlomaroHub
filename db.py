@@ -10,6 +10,7 @@ from recurring import with_defaults, mark_overrides
 from contact_validation import checked_email, sms_number
 from payroll import shift_values, total_amount, row_amount, migrate_unpaid
 from delivery import enqueue_assignment
+from schedule_proposals import initialize_defaults
 
 
 def now_text():
@@ -28,6 +29,8 @@ def init_db(seed=True):
         if seed:
             for code, name in (("event", "Eventy"), ("local", "Lokal"), ("warehouse", "Magazyn")):
                 conn.execute("INSERT OR IGNORE INTO work_groups(code,name) VALUES(?,?)", (code, name))
+
+        initialize_defaults(conn)
 
 
 def admin_exists():
@@ -1061,6 +1064,7 @@ def set_day_schedule(work_date, assignments):
     placeholders = ",".join("?" for _ in user_ids)
 
     with connect() as conn:
+        conn.execute('BEGIN IMMEDIATE')
         mark_overrides(conn, user_ids, date_value)
         old_rows = conn.execute(
             f"""
