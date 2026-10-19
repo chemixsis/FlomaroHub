@@ -122,7 +122,7 @@ SET search_path TO flomaro, pg_catalog;
             start_at TEXT NOT NULL,
             end_at TEXT,
             actual_minutes INTEGER,
-            billable_hours INTEGER,
+            billable_hours DOUBLE PRECISION,
             hourly_rate DOUBLE PRECISION,
             amount DOUBLE PRECISION,
             approval_status TEXT NOT NULL DEFAULT 'active',
@@ -156,6 +156,29 @@ CREATE TABLE IF NOT EXISTS schedule_overrides (
     work_date TEXT NOT NULL,
     PRIMARY KEY (user_id, work_date)
 );
+
+
+CREATE TABLE IF NOT EXISTS delivery_outbox (
+ id TEXT PRIMARY KEY, channel TEXT NOT NULL, recipient TEXT NOT NULL,
+ subject TEXT NOT NULL, body TEXT NOT NULL, user_id INTEGER REFERENCES users(id),
+ event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+ status TEXT NOT NULL DEFAULT 'queued', created_at BIGINT NOT NULL,
+ attempts INTEGER NOT NULL DEFAULT 0, first_attempt BIGINT NOT NULL DEFAULT 0,
+ next_attempt BIGINT NOT NULL DEFAULT 0, lease_until BIGINT NOT NULL DEFAULT 0,
+ provider_id TEXT NOT NULL DEFAULT '', last_error TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS delivery_queue_idx ON delivery_outbox(status,next_attempt);
+CREATE TABLE IF NOT EXISTS support_tickets (
+ id TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id),subject TEXT NOT NULL,
+ description TEXT NOT NULL,page TEXT NOT NULL,created_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY,applied_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS payroll_migration_backup (
+ shift_id INTEGER PRIMARY KEY, actual_minutes INTEGER, billable_hours DOUBLE PRECISION,
+ amount DOUBLE PRECISION
+);
+
+ALTER TABLE shifts ALTER COLUMN billable_hours TYPE DOUBLE PRECISION;
 
 REVOKE ALL ON ALL TABLES IN SCHEMA flomaro FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA flomaro FROM PUBLIC;

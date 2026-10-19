@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent
 TABLES = ('users', 'work_groups', 'user_work_groups', 'registration_requests',
           'schedules', 'events', 'event_assignments', 'event_attachments',
           'payments', 'availabilities', 'notifications', 'shifts',
-          'recurring_schedules', 'schedule_overrides')
+          'recurring_schedules', 'schedule_overrides', 'delivery_outbox', 'support_tickets', 'app_migrations', 'payroll_migration_backup')
 
 
 def quoted(name):
@@ -31,7 +31,7 @@ def fingerprint(rows):
 
 
 def snapshot(source):
-    source = Path(source).resolve(strict=True)
+    source = Path(source).absolute()
     if not source.is_file():
         raise ValueError('Źródło nie jest plikiem bazy.')
     backups = ROOT / 'backups'

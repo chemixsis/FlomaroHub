@@ -6,6 +6,8 @@ from uuid import uuid4
 import streamlit as st
 from mobile import install_mobile_support
 from recurring import current_rule, save_rule
+from payroll import total_amount, total_due, week_bounds, row_amount
+from app_panels import start_delivery_worker, report_problem_panel, weekly_panel, delivery_admin_panel
 
 from db import (
     init_db, add_user, authenticate, get_user, get_users,
@@ -57,6 +59,7 @@ def initialize_database():
 
 try:
     initialize_database()
+    start_delivery_worker()
 except Exception:
     st.error("Nie można połączyć się z bazą. Sprawdź konfigurację i stan projektu Supabase.")
     st.stop()
@@ -393,11 +396,11 @@ def shift_summary(row):
         "Koniec": end.strftime("%H:%M") if end else "—",
         "Rzeczywisty czas": minutes_to_text(row["actual_minutes"]),
         "Rozliczenie": (
-            f"{row['billable_hours']} h"
+            minutes_to_text(row["actual_minutes"])
             if row["billable_hours"] is not None else "—"
         ),
         "Stanowisko": work_group_label(row["work_group"]),
-        "Kwota": money(row["amount"]),
+        "Kwota": money(row_amount(row)),
         "Status": status_label(row["approval_status"]),
     }
 
@@ -997,11 +1000,11 @@ def employee_panel(user):
     c1.metric("Do zatwierdzenia", pending_count)
     c2.metric(
         "Zatwierdzone godziny",
-        f"{sum(int(s['billable_hours'] or 0) for s in approved_unpaid)} h",
+        minutes_to_text(sum(int(s["actual_minutes"] or 0) for s in approved_unpaid)),
     )
     c3.metric(
         "Do rozliczenia",
-        f"{sum(float(s['amount'] or 0) for s in approved_unpaid):,.0f} zł".replace(",", " "),
+        money(total_due(approved_unpaid)),
     )
 
     tab_names = []
@@ -1067,11 +1070,7 @@ def employee_panel(user):
             if not visible:
                 st.info("Nie masz jeszcze zapisanych godzin.")
             else:
-                st.dataframe(
-                    [shift_summary(s) for s in visible],
-                    use_container_width=True,
-                    hide_index=True,
-                )
+                weekly_panel(visible, shift_summary)
 
                 for s in visible:
                     if (
@@ -1180,7 +1179,7 @@ def approval_list(user, prefix, show_money):
         )
         st.write(
             f"Rzeczywisty czas: **{minutes_to_text(shift['actual_minutes'])}**  |  "
-            f"Rozliczenie: **{shift['billable_hours']} h**"
+            f"Rozliczenie: **{minutes_to_text(shift['actual_minutes'])}**"
         )
 
         if show_money:
@@ -1617,7 +1616,7 @@ def admin_dashboard(users, user):
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Teraz pracują", len({row["user_id"] for row in overview["active"]}))
         c2.metric("Zmiany do zatwierdzenia", len(overview["pending"]))
-        c3.metric("Do rozliczenia", money(sum(float(r["amount"] or 0) for r in overview["unpaid"])))
+        c3.metric("Do rozliczenia", money(total_due(overview["unpaid"])))
         c4.metric("Przelewy do wysłania", money(sum(float(p["amount"] or 0) for p in overview["created"])))
         st.caption("Do rozliczenia: zatwierdzone zmiany bez wypłaty. Do wysłania: już przygotowane wypłaty.")
 
@@ -1704,61 +1703,14 @@ def admin_dashboard(users, user):
                 st.caption("Brak wypłat oczekujących na potwierdzenie.")
 
 
-def admin_calendar(users):
-    st.markdown("### Grafik")
-    st.caption(
-        "Grafik miesięczny pokazuje Magazyn, Lokal, eventy i zgłoszone dni wolne."
-    )
+def select_schedule_day(day):
+    st.session_state['schedule_day_to_open'] = day
 
-    schedule_users = regular_schedule_users(users)
 
-    anchor = st.date_input(
-        "Miesiąc grafiku",
-        value=date.today().replace(day=1),
-        key="admin_schedule_month",
-    )
-    month_start, month_end = month_range(anchor)
-
-    schedule_ids = [
-        person["id"]
-        for person in schedule_users
-    ]
-
-    rows = get_schedules_for_users(
-        schedule_ids,
-        month_start,
-        month_end,
-    )
-
-    month_days_off = get_days_off_for_users(
-        schedule_ids,
-        month_start,
-        month_end,
-    )
-
-    render_roster_calendar(
-        rows,
-        schedule_users,
-        anchor,
-        days_off_rows=month_days_off,
-        show_days_off=True,
-        color_coded=True,
-        event_rows=[e for e in get_all_events() if month_start.isoformat() <= e["event_date"] <= month_end.isoformat()],
-    )
-
-    if not schedule_users:
-        st.info("Brak pracowników Magazynu lub Lokalu do wpisania w grafik. Eventy edytujesz w sekcji Eventy.")
-        return
-
-    st.divider()
-    st.markdown("### Ustaw grafik na konkretny dzień")
-
-    schedule_date = st.date_input(
-        "Dzień",
-        value=anchor,
-        key="admin_schedule_edit_date",
-    )
-
+@st.dialog("Obsada wybranego dnia", width="large")
+def admin_day_editor(schedule_users, schedule_date):
+    st.markdown(f"### {schedule_date:%d.%m.%Y}")
+    schedule_ids = [person['id'] for person in schedule_users]
     current_rows = get_day_schedule(
         schedule_date
     )
@@ -1877,6 +1829,59 @@ def admin_calendar(users):
         else:
             st.error(msg)
 
+
+
+def admin_calendar(users):
+    st.markdown("### Grafik")
+    st.caption(
+        "Grafik miesięczny pokazuje Magazyn, Lokal, eventy i zgłoszone dni wolne."
+    )
+
+    schedule_users = regular_schedule_users(users)
+
+    anchor = st.date_input(
+        "Miesiąc grafiku",
+        value=date.today().replace(day=1),
+        key="admin_schedule_month",
+    )
+    month_start, month_end = month_range(anchor)
+
+    schedule_ids = [
+        person["id"]
+        for person in schedule_users
+    ]
+
+    rows = get_schedules_for_users(
+        schedule_ids,
+        month_start,
+        month_end,
+    )
+
+    month_days_off = get_days_off_for_users(
+        schedule_ids,
+        month_start,
+        month_end,
+    )
+
+    render_roster_calendar(
+        rows,
+        schedule_users,
+        anchor,
+        days_off_rows=month_days_off,
+        show_days_off=True,
+        color_coded=True,
+        on_day_select=select_schedule_day,
+        event_rows=[e for e in get_all_events() if month_start.isoformat() <= e["event_date"] <= month_end.isoformat()],
+    )
+
+    if not schedule_users:
+        st.info("Brak pracowników Magazynu lub Lokalu do wpisania w grafik. Eventy edytujesz w sekcji Eventy.")
+        return
+
+
+    selected_day = st.session_state.pop('schedule_day_to_open', None)
+    if selected_day and month_start <= selected_day <= month_end:
+        admin_day_editor(schedule_users, selected_day)
 
 
 def admin_availability(users):
@@ -2013,14 +2018,7 @@ def admin_reports(users):
         int(r["actual_minutes"] or 0)
         for r in rows
     )
-    total_billable = sum(
-        int(r["billable_hours"] or 0)
-        for r in rows
-    )
-    total_amount = sum(
-        float(r["amount"] or 0)
-        for r in rows
-    )
+    total_amount_value = total_amount(rows)
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Zmiany", len(rows))
@@ -2028,8 +2026,8 @@ def admin_reports(users):
         "Rzeczywisty czas",
         minutes_to_text(total_actual_minutes),
     )
-    m3.metric("Godziny rozliczeniowe", f"{total_billable} h")
-    m4.metric("Koszt", money(total_amount))
+    m3.metric("Czas rozliczeniowy", minutes_to_text(total_actual_minutes))
+    m4.metric("Koszt", money(total_amount_value))
 
     table_rows = []
 
@@ -2050,9 +2048,9 @@ def admin_reports(users):
             "Start": start_dt.strftime("%H:%M"),
             "Koniec": end_dt.strftime("%H:%M"),
             "Rzeczywisty czas": minutes_to_text(r["actual_minutes"]),
-            "Godziny rozliczeniowe": r["billable_hours"],
+            "Czas rozliczeniowy": minutes_to_text(r["actual_minutes"]),
             "Stawka": money(r["hourly_rate"]),
-            "Kwota": money(r["amount"]),
+            "Kwota": money(row_amount(r)),
             "Wypłata": status_label(r["payment_status"]) if r["payment_status"] else "Nierozliczona",
         })
 
@@ -2109,7 +2107,7 @@ def admin_profiles(users, employee=None, show_identity=True):
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Zmiany", summary["all_shifts"])
-    c2.metric("Zatwierdzone godziny", f"{summary['approved_hours']} h")
+    c2.metric("Zatwierdzony czas", minutes_to_text(summary['approved_minutes']))
     c3.metric("Do zatwierdzenia", summary["pending"])
     c4.metric("Potwierdzone wypłaty", money(summary["paid_total"]))
 
@@ -2589,21 +2587,9 @@ def admin_payments_section(users):
         )
         selected = labels[selected_label]
 
-        c1, c2 = st.columns(2)
-
-        with c1:
-            date_from = st.date_input(
-                "Okres od",
-                value=date.today().replace(day=1),
-                key="payment_from",
-            )
-
-        with c2:
-            date_to = st.date_input(
-                "Okres do",
-                value=date.today(),
-                key="payment_to",
-            )
+        selected_day = st.date_input("Tydzień zawierający dzień", value=date.today(), key="payment_week")
+        date_from, date_to = week_bounds(selected_day)
+        st.write(f"Rozliczenie: **{date_from:%d.%m.%Y} – {date_to:%d.%m.%Y}**")
 
         unpaid = get_unpaid_approved_shifts(
             selected["id"],
@@ -2611,22 +2597,18 @@ def admin_payments_section(users):
             date_to,
         )
 
-        total_hours = sum(
-            int(s["billable_hours"] or 0)
-            for s in unpaid
-        )
-        total_amount = sum(
-            float(s["amount"] or 0)
-            for s in unpaid
-        )
-
+        total_minutes = sum(int(row['actual_minutes'] or 0) for row in unpaid)
+        amount = total_amount(unpaid)
         m1, m2, m3 = st.columns(3)
         m1.metric("Zmiany", len(unpaid))
-        m2.metric("Godziny", f"{total_hours} h")
-        m3.metric("Kwota", money(total_amount))
+        m2.metric("Przepracowany czas", minutes_to_text(total_minutes))
+        m3.metric("Kwota tygodniowa", money(amount))
+        with st.expander("Podgląd dziennych zmian tego tygodnia"):
+            st.dataframe([shift_summary(row) for row in unpaid],use_container_width=True,hide_index=True)
+            st.caption("Pełne minuty × stawka / 60. Zaokrąglenie wyłącznie sumy tygodnia do grosza.")
 
         if st.button(
-            "Utwórz wypłatę",
+            "Utwórz wypłatę tygodniową",
             type="primary",
             use_container_width=True,
             disabled=not unpaid,
@@ -2787,3 +2769,10 @@ else:
 
     else:
         employee_panel(current_user)
+
+
+if "user_id" in st.session_state and current_user:
+    st.divider()
+    report_problem_panel(current_user)
+    if current_user['access_level'] == 'admin':
+        delivery_admin_panel(current_user)

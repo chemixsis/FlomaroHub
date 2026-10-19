@@ -7,6 +7,9 @@ from datetime import datetime, timedelta, date
 from postgres_backend import connect, read_batch, read_connection
 from cloud_config import setting
 from recurring import with_defaults, mark_overrides
+from contact_validation import checked_email, sms_number
+from payroll import shift_values, total_amount, row_amount, migrate_unpaid
+from delivery import enqueue_assignment
 
 
 def now_text():
@@ -21,6 +24,7 @@ def init_db(seed=True):
     with connect() as conn:
         conn.execute("SELECT pg_advisory_xact_lock(73190421)")
         conn.executescript(Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
+        migrate_unpaid(conn)
         if seed:
             for code, name in (("event", "Eventy"), ("local", "Lokal"), ("warehouse", "Magazyn")):
                 conn.execute("INSERT OR IGNORE INTO work_groups(code,name) VALUES(?,?)", (code, name))
@@ -43,10 +47,14 @@ def add_user(first_name, last_name, email, phone, pin, registration_token=None):
 
     if not first_name or not last_name:
         return False, "Podaj imię i nazwisko."
-    if "@" not in email:
-        return False, "Podaj poprawny adres e-mail."
-    if not phone:
-        return False, "Podaj numer telefonu."
+    try:
+        email = checked_email(email)
+    except ValueError as exc:
+        return False, str(exc)
+    try:
+        phone = '+' + sms_number(phone)
+    except ValueError as exc:
+        return False, str(exc)
     if not (pin.isdigit() and len(pin) == 4):
         return False, "PIN musi składać się dokładnie z 4 cyfr."
 
@@ -132,10 +140,14 @@ def change_own_contact(user_id, current_pin, email, phone):
     phone = phone.strip()
     if not (current_pin.isascii() and current_pin.isdigit() and len(current_pin) == 4):
         return False, "Podaj obecny 4-cyfrowy PIN."
-    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
-        return False, "Podaj poprawny adres e-mail."
-    if not re.fullmatch(r"\+?[0-9 ()-]+", phone) or not 6 <= sum(c.isdigit() for c in phone) <= 15:
-        return False, "Podaj poprawny numer telefonu (6–15 cyfr, opcjonalnie prefiks kraju)."
+    try:
+        email = checked_email(email)
+    except ValueError as exc:
+        return False, str(exc)
+    try:
+        phone = '+' + sms_number(phone)
+    except ValueError as exc:
+        return False, str(exc)
     try:
         with connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -644,21 +656,8 @@ def start_shift(user_id, work_group):
     return True, "Zmiana rozpoczęta."
 
 
-def temporary_round_hours(actual_minutes):
-    hours = actual_minutes // 60
-    remainder = actual_minutes % 60
-    if remainder >= 30:
-        hours += 1
-    return hours
-
-
 def recalc_shift_values(start_at, end_at, hourly_rate):
-    start_dt = datetime.strptime(start_at, "%Y-%m-%d %H:%M:%S")
-    end_dt = datetime.strptime(end_at, "%Y-%m-%d %H:%M:%S")
-    minutes = max(0, int((end_dt - start_dt).total_seconds() // 60))
-    billable = temporary_round_hours(minutes)
-    amount = round(billable * float(hourly_rate), 2)
-    return minutes, billable, amount
+    return shift_values(start_at, end_at, hourly_rate)
 
 
 def end_shift(user_id):
@@ -1492,12 +1491,13 @@ def create_event(name, event_date, start_time, end_time, location, note, user_id
         ))
         event_id = cur.lastrowid
 
-        for user_id in user_ids:
+        for user_id in sorted(set(user_ids)):
             conn.execute("""
                 INSERT OR IGNORE INTO event_assignments (event_id, user_id)
                 VALUES (?, ?)
             """, (event_id, user_id))
 
+            enqueue_assignment(conn, event_id, user_id)
             _create_notification(
                 conn,
                 user_id,
@@ -1582,34 +1582,30 @@ def get_unpaid_approved_shifts(user_id, date_from, date_to):
 
 
 def create_payment(user_id, date_from, date_to):
-    shifts = get_unpaid_approved_shifts(user_id, date_from, date_to)
-
-    if not shifts:
-        return False, "Brak zatwierdzonych, nierozliczonych zmian w tym okresie."
-
-    total = round(sum(float(s["amount"] or 0) for s in shifts), 2)
-
+    if date_from.weekday()!=0 or date_to!=date_from+timedelta(days=6):
+        return False, "Wybierz pełny tydzień od poniedziałku do niedzieli."
     with connect() as conn:
-        cur = conn.execute("""
-            INSERT INTO payments
-            (user_id, period_from, period_to, amount, status)
-            VALUES (?, ?, ?, ?, 'created')
-        """, (
-            user_id,
-            date_from.isoformat(),
-            date_to.isoformat(),
-            total,
-        ))
-        payment_id = cur.lastrowid
+        conn.execute("BEGIN IMMEDIATE")
+        shifts=conn.execute("""SELECT * FROM shifts WHERE user_id=? AND approval_status='approved'
+            AND payment_id IS NULL AND date(start_at) BETWEEN ? AND ? ORDER BY id FOR UPDATE""",
+            (user_id,date_from.isoformat(),date_to.isoformat())).fetchall()
+        if not shifts:
+            return False, "Brak zatwierdzonych, nierozliczonych zmian w tym tygodniu."
+        total=total_amount(shifts)
+        cursor=conn.execute("""INSERT INTO payments(user_id,period_from,period_to,amount,status)
+            VALUES(?,?,?,?,'created')""",(user_id,date_from.isoformat(),date_to.isoformat(),float(total)))
+        for row in shifts:
+            conn.execute('UPDATE shifts SET payment_id=?,amount=?,billable_hours=? WHERE id=? AND payment_id IS NULL',
+                         (cursor.lastrowid,float(row_amount(row)),int(row['actual_minutes'] or 0)/60,row['id']))
+    return True, float(total)
 
-        ids = [s["id"] for s in shifts]
-        placeholders = ",".join("?" for _ in ids)
-        conn.execute(
-            f"UPDATE shifts SET payment_id = ? WHERE id IN ({placeholders})",
-            [payment_id] + ids,
-        )
 
-    return True, total
+def get_payment_shifts(payment_id, viewer_id):
+    with read_connection() as conn:
+        return conn.execute("""SELECT s.* FROM shifts s JOIN payments p ON p.id=s.payment_id
+            JOIN users u ON u.id=? AND u.active=1
+            WHERE p.id=? AND (u.access_level='admin' OR p.user_id=u.id) ORDER BY s.start_at""",
+            (viewer_id,payment_id)).fetchall()
 
 
 def get_user_payments(user_id):
@@ -1805,8 +1801,9 @@ def get_user_summary(user_id):
 
     return {
         "all_shifts": len([s for s in shifts if s["approval_status"] != "active"]),
+        "approved_minutes": sum(int(s['actual_minutes'] or 0) for s in shifts if s['approval_status']=='approved'),
         "approved_hours": sum(
-            int(s["billable_hours"] or 0)
+            int(s["actual_minutes"] or 0) / 60
             for s in shifts
             if s["approval_status"] == "approved"
         ),
@@ -1851,7 +1848,7 @@ def save_event_details(actor_id, event_id, name, event_date, start_time, end_tim
             return False, "Nie znaleziono eventu."
         user_ids = sorted(set(user_ids))
         for person_id in user_ids + ([manager_id] if manager_id is not None else []):
-            if not conn.execute("SELECT 1 FROM users WHERE id=?", (person_id,)).fetchone():
+            if not conn.execute("SELECT 1 FROM users WHERE id=? AND active=1", (person_id,)).fetchone():
                 return False, "Nie znaleziono wybranej osoby."
         values = (name.strip(), event_date.isoformat(), start_time.strftime("%H:%M"), end_time.strftime("%H:%M"), location.strip(), note.strip(), manager_id)
         if old is None:
@@ -1862,6 +1859,10 @@ def save_event_details(actor_id, event_id, name, event_date, start_time, end_tim
         old_ids = {r[0] for r in conn.execute("SELECT user_id FROM event_assignments WHERE event_id=?", (event_id,))}
         conn.execute("DELETE FROM event_assignments WHERE event_id=?", (event_id,))
         conn.executemany("INSERT INTO event_assignments(event_id,user_id) VALUES(?,?)", [(event_id, uid) for uid in user_ids])
+        for uid in old_ids - set(user_ids):
+            conn.execute("UPDATE delivery_outbox SET status='cancelled',last_error='assignment_removed' WHERE event_id=? AND user_id=? AND status='queued'", (event_id, uid))
+        for uid in set(user_ids) - old_ids:
+            enqueue_assignment(conn, event_id, uid)
         for filename, content, digest in prepared:
             conn.execute("INSERT OR IGNORE INTO event_attachments(event_id,name,content,sha256,uploaded_by) VALUES(?,?,?,?,?)", (event_id, filename, content, digest, actor_id))
         changed = old is None or values != tuple(old[k] for k in ("name","event_date","start_time","end_time","location","note","manager_id")) or old_ids != set(user_ids) or bool(prepared)

@@ -1,0 +1,10 @@
+Sprawdzenie aktualizacji 19.10.2026
+55 testów logiki zakończonych powodzeniem: walidacja kontaktów, transakcje i wycofanie zmian,
+kolejka e-mail/SMS, brak duplikatów po ponownym zapisie, naliczanie minut i tygodni,
+zachowanie wypłat historycznych, migracja idempotentna, dotychczasowy grafik i zapytania.
+Składnia plików Python sprawdzona.
+3 dodatkowe testy interfejsu Streamlit nie zostały ukończone: lokalna pętla zdarzeń
+blokuje się przy tworzeniu połączenia socket. Wymagają środowiska z działającym socketpair.
+Nie wykonano rzeczywistej wysyłki ani migracji finansowej w bazie produkcyjnej.
+Zapytania bazodanowe badano z adapterem testowym SQLite; nie jest to test integracyjny PostgreSQL.
+Przed korzystaniem sprawdź interfejs i znane rozliczenie po wdrożeniu.

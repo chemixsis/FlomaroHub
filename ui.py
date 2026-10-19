@@ -2,10 +2,11 @@ import calendar
 from datetime import timedelta
 from html import escape
 import streamlit as st
+from payroll import grosz
 
 
 def money(value):
-    return f"{float(value or 0):,.2f} zł".replace(",", "X").replace(".", ",").replace("X", " ")
+    return f"{grosz(value):,.2f} zł".replace(",", "X").replace(".", ",").replace("X", " ")
 
 
 def minutes_to_text(minutes):
@@ -1016,6 +1017,35 @@ def _event_html(row, show_name=True):
     )
 
 
+def render_clickable_roster(rows, anchor, days_off, events, on_select):
+    st.caption('Kliknij datę w kalendarzu, aby otworzyć obsadę tego dnia.')
+    with st.container(key='clickable_calendar'):
+        for week in calendar.Calendar(firstweekday=0).monthdatescalendar(anchor.year,anchor.month):
+            for col,day in zip(st.columns(7,gap='small'),week):
+                with col:
+                    if day.month!=anchor.month:
+                        st.caption(' ')
+                        continue
+                    with st.container(border=True):
+                        label=['Pon','Wt','Śr','Czw','Pt','Sob','Nd'][day.weekday()]
+                        st.button(f'{day.day} · {label}',key=f'edit_roster_{day.isoformat()}',
+                                  on_click=on_select,args=(day,),use_container_width=True)
+                        key=day.isoformat()
+                        blocks=[]
+                        for area,title,color in [('warehouse','Magazyn','#175747'),('local','Lokal','#54357B')]:
+                            people=[f"{r['first_name']} {r['last_name']}" for r in rows if r['work_date']==key and r['work_group']==area]
+                            if people:
+                                blocks.append(f'<div style="background:{color};color:white;padding:8px;border-radius:8px;margin:5px 0;overflow-wrap:anywhere"><b>{title}</b><br>'+escape(', '.join(people))+'</div>')
+                        for event in events:
+                            if event['event_date']==key:
+                                text=f"{event['start_time']}–{event['end_time']}"
+                                blocks.append('<div style="background:#E7B843;color:#0D2947;padding:8px;border-radius:8px;margin:5px 0;overflow-wrap:anywhere"><b>Eventy · '+escape(event['name'])+'</b><br>'+escape(text)+'<br>'+escape(event['people'] or 'Brak obsady')+'</div>')
+                        free=[f"{r['first_name']} {r['last_name']}" for r in days_off if r['availability_date']==key]
+                        if free: blocks.append('<div style="background:#e7edf4;color:#0D2947;padding:8px;border-radius:8px"><b>Wolne</b><br>'+escape(', '.join(free))+'</div>')
+                        if blocks: st.markdown(''.join(blocks),unsafe_allow_html=True)
+                        else: st.caption('Brak obsady')
+
+
 def render_roster_calendar(
     rows,
     users,
@@ -1024,11 +1054,15 @@ def render_roster_calendar(
     show_days_off=False,
     event_rows=None,
     color_coded=False,
+    on_day_select=None,
 ):
     """
     Monthly visual roster calendar.
     Each day shows employees grouped by workplace.
     """
+    if on_day_select is not None:
+        render_clickable_roster(rows, anchor_date, days_off_rows or [], event_rows or [], on_day_select)
+        return
     last_day = calendar.monthrange(
         anchor_date.year,
         anchor_date.month,
