@@ -19,7 +19,7 @@ from db import (
     get_notifications, count_unread_notifications, mark_notification_read, mark_all_notifications_read,
     get_active_shift, start_shift, end_shift, add_manual_shift,
     get_user_shifts, get_all_shifts, get_pending_shifts, get_shift,
-    correct_shift, approve_shift, reject_shift, delete_rejected_shift,
+    correct_shift, approve_shift, approve_week_shifts, reject_shift, delete_rejected_shift,
     get_schedule_for_user_date, get_day_schedule, set_day_schedule,
     add_schedule, update_schedule, get_user_schedule,
     get_schedules_for_users, get_group_schedules, get_all_schedules, get_schedule, delete_schedule,
@@ -1165,6 +1165,9 @@ def employee_panel(user):
         logout()
 
 def approval_list(user, prefix, show_money):
+    feedback = st.session_state.pop(f"{prefix}_approval_feedback", None)
+    if feedback:
+        st.success(feedback)
     pending = get_pending_shifts()
     selection_key = f"{prefix}_approval_person"
     if not pending:
@@ -1208,60 +1211,87 @@ def approval_list(user, prefix, show_money):
     st.caption(f"Zmiany oczekujące: {len(shifts)} · Łączny czas: "
                f"{minutes_to_text(sum(int(s['actual_minutes'] or 0) for s in shifts))}")
 
+    weeks = {}
     for shift in shifts:
+        weeks.setdefault(week_bounds(shift['start_at'])[0], []).append(shift)
+    week = st.selectbox("Tydzień (poniedziałek–niedziela)", sorted(weeks, reverse=True),
+        format_func=lambda day: f"{day.strftime('%d.%m.%Y')} – {(day + timedelta(days=6)).strftime('%d.%m.%Y')}",
+        key=f"{prefix}_approval_week_{selected}")
+    weekly_shifts = sorted(weeks[week], key=lambda row: row['start_at'])
+    st.caption("Tabela zawiera zmiany oczekujące na zatwierdzenie w wybranym tygodniu.")
+    table = []
+    for shift in weekly_shifts:
         start = datetime.strptime(shift['start_at'], '%Y-%m-%d %H:%M:%S')
         end = datetime.strptime(shift['end_at'], '%Y-%m-%d %H:%M:%S')
-        with st.container(border=True, key=f"{prefix}_approval_card_{shift['id']}"):
-            st.markdown(f"### {start.strftime('%d.%m.%Y')}")
-            st.caption(f"{work_group_label(shift['work_group'])} · Oczekuje na zatwierdzenie")
-            end_label = end.strftime('%H:%M') if start.date() == end.date() else end.strftime('%d.%m.%Y %H:%M')
-            st.markdown(f"**{start.strftime('%H:%M')} – {end_label}**")
-            columns = st.columns(3 if show_money else 1)
-            columns[0].metric("Przepracowany czas", minutes_to_text(shift['actual_minutes']))
-            if show_money:
-                columns[1].metric("Stawka / godz.", money(shift['hourly_rate']))
-                columns[2].metric("Do rozliczenia", money(shift['amount']))
-            st.caption(scheduled_vs_actual(shift))
-            if shift["correction_note"]:
-                st.info(
-                    f"Korekta: {shift['correction_note']}"
+        row = {'Data': start.strftime('%d.%m.%Y'), 'Miejsce': work_group_label(shift['work_group']),
+               'Od': start.strftime('%H:%M'),
+               'Do': end.strftime('%H:%M') if start.date() == end.date() else end.strftime('%d.%m %H:%M'),
+               'Czas pracy': minutes_to_text(shift['actual_minutes'])}
+        if show_money:
+            row.update({'Stawka / h': money(shift['hourly_rate']), 'Kwota': money(row_amount(shift))})
+        row['Uwagi do korekty'] = shift['correction_note'] or '—'
+        table.append(row)
+    st.dataframe(table, use_container_width=True, hide_index=True)
+    totals = st.columns(3 if show_money else 2)
+    totals[0].metric("Zmiany w tygodniu", len(weekly_shifts))
+    totals[1].metric("Łączny czas", minutes_to_text(sum(int(s['actual_minutes'] or 0) for s in weekly_shifts)))
+    if show_money:
+        totals[2].metric("Kwota za tydzień", money(total_amount(weekly_shifts)))
+        if st.button("Zatwierdź cały tydzień", type="primary", use_container_width=True,
+                     key=f"{prefix}_approve_week_{selected}_{week.isoformat()}"):
+            ok, message = approve_week_shifts(selected, week, weekly_shifts, user['id'])
+            if ok:
+                st.session_state[f"{prefix}_approval_feedback"] = message
+                st.rerun()
+            else:
+                st.warning(message)
+    with st.expander("Popraw lub rozpatrz pojedynczą zmianę"):
+        shift_id = st.selectbox("Wybierz zmianę", [s['id'] for s in weekly_shifts],
+            format_func=lambda sid: next(
+                f"{s['start_at'][:16]} · {work_group_label(s['work_group'])}" for s in weekly_shifts if s['id'] == sid),
+            key=f"{prefix}_approval_detail_{selected}_{week.isoformat()}")
+        shift = next(s for s in weekly_shifts if s['id'] == shift_id)
+        st.caption(scheduled_vs_actual(shift))
+        if shift["correction_note"]:
+            st.info(
+                f"Korekta: {shift['correction_note']}"
+            )
+
+        correction_form(
+            shift,
+            user["id"],
+            prefix,
+        )
+
+        rejection_note = st.text_input(
+            "Powód odrzucenia (opcjonalnie)",
+            key=f"{prefix}_reject_note_{shift['id']}",
+        )
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            if st.button(
+                "Zatwierdź",
+                key=f"{prefix}_approve_{shift['id']}",
+                type="primary",
+                use_container_width=True,
+            ):
+                approve_shift(shift["id"], user["id"])
+                st.rerun()
+
+        with c2:
+            if st.button(
+                "Odrzuć",
+                key=f"{prefix}_reject_{shift['id']}",
+                use_container_width=True,
+            ):
+                reject_shift(
+                    shift["id"],
+                    user["id"],
+                    rejection_note,
                 )
-
-            correction_form(
-                shift,
-                user["id"],
-                prefix,
-            )
-
-            rejection_note = st.text_input(
-                "Powód odrzucenia (opcjonalnie)",
-                key=f"{prefix}_reject_note_{shift['id']}",
-            )
-
-            c1, c2 = st.columns(2)
-
-            with c1:
-                if st.button(
-                    "Zatwierdź",
-                    key=f"{prefix}_approve_{shift['id']}",
-                    type="primary",
-                    use_container_width=True,
-                ):
-                    approve_shift(shift["id"], user["id"])
-                    st.rerun()
-
-            with c2:
-                if st.button(
-                    "Odrzuć",
-                    key=f"{prefix}_reject_{shift['id']}",
-                    use_container_width=True,
-                ):
-                    reject_shift(
-                        shift["id"],
-                        user["id"],
-                        rejection_note,
-                    )
-                    st.rerun()
+                st.rerun()
 
 
 

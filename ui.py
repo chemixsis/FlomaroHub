@@ -977,6 +977,9 @@ def apply_styles():
       .roster-legend {display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 16px;}
       .roster-legend .roster-place {font-size:.85rem; font-weight:700; margin:0; padding:8px 12px;}
 
+      /* Calendar screens retain the complete pre-refresh styling. */
+      :root:not(:has(.st-key-clickable_calendar, .st-key-event_calendar_grid,
+                     .st-key-regular_calendar_grid, .roster-calendar, .calendar)) {
       /* Visual refresh: layout and presentation only; widget behavior is unchanged. */
       .stApp { background: #0B223B; }
       .block-container {
@@ -1143,6 +1146,7 @@ def apply_styles():
         .stApp *, .stApp *::before, .stApp *::after {
           animation: none !important; transition: none !important;
         }
+      }
       }
     </style>
     """, unsafe_allow_html=True)

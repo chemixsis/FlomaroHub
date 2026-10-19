@@ -917,6 +917,33 @@ def approve_shift(shift_id, approver_id):
         )
 
 
+def approve_week_shifts(employee_id, week_start, displayed_shifts, approver_id):
+    """Approve exactly the reviewed rows atomically; reject stale weekly snapshots."""
+    start = date.fromisoformat(str(week_start)[:10])
+    start -= timedelta(days=start.weekday())
+    end = start + timedelta(days=6)
+    fields = ('id', 'user_id', 'start_at', 'end_at', 'actual_minutes',
+              'hourly_rate', 'amount', 'work_group', 'correction_note')
+    snapshot = lambda rows: sorted(tuple(str(row[k]) for k in fields) for row in rows)
+    with connect() as conn:
+        actor = conn.execute("SELECT id FROM users WHERE id=? AND access_level='admin' AND active=1",
+                             (approver_id,)).fetchone()
+        if not actor:
+            return False, "Zatwierdzanie tygodnia jest dostępne tylko dla szefa."
+        rows = conn.execute("""SELECT * FROM shifts WHERE user_id=?
+            AND approval_status='pending' AND date(start_at) BETWEEN ? AND ?
+            ORDER BY id FOR UPDATE""", (employee_id, start.isoformat(), end.isoformat())).fetchall()
+        if not rows or snapshot(rows) != snapshot(displayed_shifts):
+            return False, "Zmiany zostały już rozpatrzone lub zmodyfikowane. Odśwież widok i sprawdź tydzień ponownie."
+        approved_at = now_text()
+        for row in rows:
+            conn.execute("""UPDATE shifts SET approval_status='approved', approved_by=?, approved_at=?
+                WHERE id=? AND approval_status='pending'""", (approver_id, approved_at, row['id']))
+            _create_notification(conn, employee_id, "Zmiana zatwierdzona",
+                f"Twoja zmiana z {row['start_at'][:10]} została zatwierdzona.", "shift_approved")
+    return True, f"Zatwierdzono tydzień {start.strftime('%d.%m')}–{end.strftime('%d.%m.%Y')} (zmiany: {len(rows)})."
+
+
 def reject_shift(shift_id, approver_id, note=""):
     with connect() as conn:
         shift = conn.execute("""
