@@ -2328,7 +2328,7 @@ def admin_employee_accounts(users):
             format_func=lambda value: "SZEF" if value == "admin" else "PRACOWNIK",
         )
         rate = st.text_input("Stawka godzinowa [zł]", value=str(selected["hourly_rate"]).replace(".", ","))
-        groups = st.multiselect("Obszar pracy", ["event", "warehouse", "local"], default=current_groups, format_func=work_group_label)
+        groups = st.multiselect("Obszar pracy", ["event", "warehouse", "local"], default=current_groups, format_func=work_group_label, key=f"admin_work_groups_{selected['id']}")
         save = st.form_submit_button("Zapisz ustawienia", type="primary", use_container_width=True)
     if save:
         ok, message = update_user_settings(selected["id"], access, rate, groups)

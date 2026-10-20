@@ -1148,6 +1148,70 @@ def apply_styles():
         }
       }
       }
+      /* Accessible work-area chips and rounded active navigation. */
+      .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] [data-baseweb="tag"],
+      .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] [data-baseweb="tag"] * {
+        background-color: #E7B843 !important;
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important;
+      }
+      [role="listbox"] [role="option"][aria-selected="true"],
+      [role="listbox"] [role="option"][aria-selected="true"] * {
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important;
+      }
+      .stApp.stApp.stApp.stApp.stApp.stApp [role="tab"] {
+        border-radius: 12px !important;
+        overflow: hidden;
+        padding: .55rem .9rem !important;
+        margin: 2px;
+      }
+      .stApp.stApp.stApp.stApp.stApp.stApp [role="tab"][aria-selected="true"] {
+        background: #E7B843 !important;
+        color: #0D2947 !important;
+      }
+      .stApp.stApp.stApp.stApp.stApp.stApp [role="tab"][aria-selected="true"] * {
+        background: transparent !important;
+        color: #0D2947 !important;
+        -webkit-text-fill-color: #0D2947 !important;
+      }
+      .stApp [data-baseweb="tab-highlight"] { display: none; }
+      /* Compact, aligned weeks in the boss calendar. */
+      .st-key-clickable_calendar [data-testid="stHorizontalBlock"] {
+        align-items: stretch !important;
+        gap: 8px !important;
+      }
+      .st-key-clickable_calendar [data-testid="stColumn"] {
+        display: flex;
+        align-items: stretch;
+      }
+      .st-key-clickable_calendar [data-testid="stColumn"] > [data-testid="stVerticalBlock"] {
+        width: 100%; height: 100%;
+      }
+      .st-key-clickable_calendar [class*="st-key-roster_day_"] {
+        flex: 1 1 auto;
+        height: 100%;
+        padding: 8px !important;
+        border-radius: 10px !important;
+      }
+      .st-key-clickable_calendar [class*="st-key-roster_day_"] [data-testid="stVerticalBlock"] {
+        gap: 6px !important;
+      }
+      .stApp .st-key-clickable_calendar [data-testid="stMarkdownContainer"],
+      .stApp .st-key-clickable_calendar [data-testid="stMarkdownContainer"] :is(div,p,b),
+      .stApp .st-key-clickable_calendar [data-testid="stCaptionContainer"] p {
+        font-size: 13px !important;
+        line-height: 1.45 !important;
+      }
+      .stApp .st-key-clickable_calendar [data-testid="stButton"] button {
+        min-height: 36px !important;
+        padding: 5px 6px !important;
+        border-radius: 8px !important;
+      }
+      .stApp .st-key-clickable_calendar [data-testid="stButton"] button p {
+        font-size: 14px !important;
+        line-height: 1.25 !important;
+      }
     </style>
     """, unsafe_allow_html=True)
 
@@ -1198,7 +1262,7 @@ def render_clickable_roster(rows, anchor, days_off, events, on_select):
                     if day.month!=anchor.month:
                         st.caption(' ')
                         continue
-                    with st.container(border=True):
+                    with st.container(border=True, height='stretch', key=f'roster_day_{day.isoformat()}'):
                         label=['Pon','Wt','Śr','Czw','Pt','Sob','Nd'][day.weekday()]
                         st.button(f'{day.day} · {label}',key=f'edit_roster_{day.isoformat()}',
                                   on_click=on_select,args=(day,),use_container_width=True)
@@ -1207,13 +1271,13 @@ def render_clickable_roster(rows, anchor, days_off, events, on_select):
                         for area,title,color in [('warehouse','Magazyn','#175747'),('local','Lokal','#54357B')]:
                             people=[f"{r['first_name']} {r['last_name']}" for r in rows if r['work_date']==key and r['work_group']==area]
                             if people:
-                                blocks.append(f'<div style="background:{color};color:white;padding:8px;border-radius:8px;margin:5px 0;overflow-wrap:anywhere"><b>{title}</b><br>'+escape(', '.join(people))+'</div>')
+                                blocks.append(f'<div style="background:{color};color:white;padding:8px;border-radius:8px;margin:5px 0;overflow-wrap:anywhere"><b>{title}</b><br>'+'<br>'.join(escape(person) for person in people)+'</div>')
                         for event in events:
                             if event['event_date']==key:
                                 text=f"{event['start_time']}–{event['end_time']}"
                                 blocks.append('<div style="background:#E7B843;color:#0D2947;padding:8px;border-radius:8px;margin:5px 0;overflow-wrap:anywhere"><b>Eventy · '+escape(event['name'])+'</b><br>'+escape(text)+'<br>'+escape(event['people'] or 'Brak obsady')+'</div>')
                         free=[f"{r['first_name']} {r['last_name']}" for r in days_off if r['availability_date']==key]
-                        if free: blocks.append('<div style="background:#e7edf4;color:#0D2947;padding:8px;border-radius:8px"><b>Wolne</b><br>'+escape(', '.join(free))+'</div>')
+                        if free: blocks.append('<div style="background:#e7edf4;color:#0D2947;padding:8px;border-radius:8px"><b>Wolne</b><br>'+'<br>'.join(escape(person) for person in free)+'</div>')
                         if blocks: st.markdown(''.join(blocks),unsafe_allow_html=True)
                         else: st.caption('Brak obsady')
 
