@@ -1176,42 +1176,25 @@ def apply_styles():
         -webkit-text-fill-color: #0D2947 !important;
       }
       .stApp [data-baseweb="tab-highlight"] { display: none; }
-      /* Compact, aligned weeks in the boss calendar. */
-      .st-key-clickable_calendar [data-testid="stHorizontalBlock"] {
-        align-items: stretch !important;
-        gap: 8px !important;
+      .st-key-roster_actions { display: none !important; }
+      .stApp .roster-date-control {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 4px !important;
+        padding: 0 !important;
+        min-height: 0 !important;
+        box-shadow: none !important;
+        color: var(--flomaro-yellow) !important;
+        -webkit-text-fill-color: var(--flomaro-yellow) !important;
+        font: inherit;
+        font-size: 1rem !important;
+        font-weight: 800 !important;
+        cursor: pointer;
       }
-      .st-key-clickable_calendar [data-testid="stColumn"] {
-        display: flex;
-        align-items: stretch;
-      }
-      .st-key-clickable_calendar [data-testid="stColumn"] > [data-testid="stVerticalBlock"] {
-        width: 100%; height: 100%;
-      }
-      .st-key-clickable_calendar [class*="st-key-roster_day_"] {
-        flex: 1 1 auto;
-        height: 100%;
-        padding: 8px !important;
-        border-radius: 10px !important;
-      }
-      .st-key-clickable_calendar [class*="st-key-roster_day_"] [data-testid="stVerticalBlock"] {
-        gap: 6px !important;
-      }
-      .stApp .st-key-clickable_calendar [data-testid="stMarkdownContainer"],
-      .stApp .st-key-clickable_calendar [data-testid="stMarkdownContainer"] :is(div,p,b),
-      .stApp .st-key-clickable_calendar [data-testid="stCaptionContainer"] p {
-        font-size: 13px !important;
-        line-height: 1.45 !important;
-      }
-      .stApp .st-key-clickable_calendar [data-testid="stButton"] button {
-        min-height: 36px !important;
-        padding: 5px 6px !important;
-        border-radius: 8px !important;
-      }
-      .stApp .st-key-clickable_calendar [data-testid="stButton"] button p {
-        font-size: 14px !important;
-        line-height: 1.25 !important;
-      }
+      .stApp .roster-date-control:hover { text-decoration: underline; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -1253,35 +1236,6 @@ def _event_html(row, show_name=True):
     )
 
 
-def render_clickable_roster(rows, anchor, days_off, events, on_select):
-    st.caption('Kliknij datę w kalendarzu, aby otworzyć obsadę tego dnia.')
-    with st.container(key='clickable_calendar'):
-        for week in calendar.Calendar(firstweekday=0).monthdatescalendar(anchor.year,anchor.month):
-            for col,day in zip(st.columns(7,gap='small'),week):
-                with col:
-                    if day.month!=anchor.month:
-                        st.caption(' ')
-                        continue
-                    with st.container(border=True, height='stretch', key=f'roster_day_{day.isoformat()}'):
-                        label=['Pon','Wt','Śr','Czw','Pt','Sob','Nd'][day.weekday()]
-                        st.button(f'{day.day} · {label}',key=f'edit_roster_{day.isoformat()}',
-                                  on_click=on_select,args=(day,),use_container_width=True)
-                        key=day.isoformat()
-                        blocks=[]
-                        for area,title,color in [('warehouse','Magazyn','#175747'),('local','Lokal','#54357B')]:
-                            people=[f"{r['first_name']} {r['last_name']}" for r in rows if r['work_date']==key and r['work_group']==area]
-                            if people:
-                                blocks.append(f'<div style="background:{color};color:white;padding:8px;border-radius:8px;margin:5px 0;overflow-wrap:anywhere"><b>{title}</b><br>'+'<br>'.join(escape(person) for person in people)+'</div>')
-                        for event in events:
-                            if event['event_date']==key:
-                                text=f"{event['start_time']}–{event['end_time']}"
-                                blocks.append('<div style="background:#E7B843;color:#0D2947;padding:8px;border-radius:8px;margin:5px 0;overflow-wrap:anywhere"><b>Eventy · '+escape(event['name'])+'</b><br>'+escape(text)+'<br>'+escape(event['people'] or 'Brak obsady')+'</div>')
-                        free=[f"{r['first_name']} {r['last_name']}" for r in days_off if r['availability_date']==key]
-                        if free: blocks.append('<div style="background:#e7edf4;color:#0D2947;padding:8px;border-radius:8px"><b>Wolne</b><br>'+'<br>'.join(escape(person) for person in free)+'</div>')
-                        if blocks: st.markdown(''.join(blocks),unsafe_allow_html=True)
-                        else: st.caption('Brak obsady')
-
-
 def render_roster_calendar(
     rows,
     users,
@@ -1296,9 +1250,6 @@ def render_roster_calendar(
     Monthly visual roster calendar.
     Each day shows employees grouped by workplace.
     """
-    if on_day_select is not None:
-        render_clickable_roster(rows, anchor_date, days_off_rows or [], event_rows or [], on_day_select)
-        return
     last_day = calendar.monthrange(
         anchor_date.year,
         anchor_date.month,
@@ -1386,11 +1337,13 @@ def render_roster_calendar(
         free_people = days_off.get(date_key, [])
 
         html += '<div class="roster-calendar-day">'
-        html += (
-            '<div class="roster-date">'
-            f'{day_number}'
-            '</div>'
-        )
+        if on_day_select is not None:
+            html += (f'<button type="button" class="roster-date roster-date-control" '
+                     f'data-roster-day="{date_key}" aria-label="Edytuj obsadę {day.strftime("%d.%m.%Y")}">'
+                     f'{day_number}</button>')
+        else:
+            html += f'<div class="roster-date">{day_number}</div>'
+
 
         if warehouse_people:
             html += (
@@ -1446,10 +1399,34 @@ def render_roster_calendar(
 
     html += '</div></div>'
 
-    st.markdown(
-        html,
-        unsafe_allow_html=True,
-    )
+    if on_day_select is None:
+        st.markdown(html, unsafe_allow_html=True)
+    else:
+        # Keep the original HTML grid and route date clicks to Streamlit callbacks.
+        with st.container(key="roster_actions"):
+            for day_number in range(1, last_day + 1):
+                day = anchor_date.replace(day=day_number)
+                st.button(str(day_number), key=f"edit_roster_{day.isoformat()}",
+                          on_click=on_day_select, args=(day,))
+        st.html(html + r"""
+        <script>
+        (() => {
+          if (window.flomaroRosterClick) {
+            document.removeEventListener('click', window.flomaroRosterClick);
+          }
+          window.flomaroRosterClick = (event) => {
+            const dateButton = event.target.closest('button[data-roster-day]');
+            if (!dateButton) return;
+            const day = dateButton.getAttribute('data-roster-day');
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+            const action = document.querySelector('.st-key-roster_actions .st-key-edit_roster_' + day + ' button');
+            if (action && !action.disabled) action.click();
+          };
+          document.addEventListener('click', window.flomaroRosterClick);
+        })();
+        </script>
+        """, unsafe_allow_javascript=True)
+
 
 
 
