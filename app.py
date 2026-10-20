@@ -1926,24 +1926,29 @@ def admin_calendar(users):
         month_end,
     )
 
+    event_rows = [e for e in get_all_events()
+                  if month_start.isoformat() <= e["event_date"] <= month_end.isoformat()]
+    admin_calendar_grid(rows, schedule_users, anchor, month_days_off, event_rows)
+
+
+@st.fragment
+def admin_calendar_grid(rows, schedule_users, anchor, month_days_off, event_rows):
+    """Date clicks rerun only this grid, not all boss-page database reads."""
     render_roster_calendar(
-        rows,
-        schedule_users,
-        anchor,
+        rows, schedule_users, anchor,
         days_off_rows=month_days_off,
         show_days_off=True,
         color_coded=True,
         on_day_select=select_schedule_day,
-        event_rows=[e for e in get_all_events() if month_start.isoformat() <= e["event_date"] <= month_end.isoformat()],
+        event_rows=event_rows,
     )
-
     if not schedule_users:
         st.info("Brak pracowników Magazynu lub Lokalu do wpisania w grafik. Eventy edytujesz w sekcji Eventy.")
         return
-
-
     selected_day = st.session_state.pop('schedule_day_to_open', None)
+    month_start, month_end = month_range(anchor)
     if selected_day and month_start <= selected_day <= month_end:
+        # Read the selected day's current data; never reuse a stale monthly snapshot for edits.
         admin_day_editor(schedule_users, selected_day)
 
 
