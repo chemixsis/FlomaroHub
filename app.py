@@ -2298,7 +2298,7 @@ def admin_employee_accounts(users):
     selected = next((u for u in users if u["id"] == selected_id), None)
     if selected is None:
         st.session_state.pop("admin_employee_detail_id", None)
-        st.caption("Kliknij osobę w tabeli, aby otworzyć jej dane i ustawienia.")
+        st.caption("Kliknij imię i nazwisko, aby otworzyć dane i ustawienia pracownika.")
         rows = [{
             "Imię i nazwisko": f"{u['first_name']} {u['last_name']}",
             "E-mail": u["email"], "Telefon": u["phone"],
@@ -2311,10 +2311,11 @@ def admin_employee_accounts(users):
             return
         selection = st.dataframe(
             rows, use_container_width=True, hide_index=True,
-            on_select="rerun", selection_mode=["single-row", "single-cell"],
+            on_select="rerun", selection_mode="single-cell",
             key=f"admin_people_table_{st.session_state.get('admin_people_epoch', 0)}",
         )
-        index = table_selected_index(selection)
+        cells = selection.selection.get("cells", [])
+        index = cells[0][0] if cells and cells[0][1] == "Imię i nazwisko" else None
         if index is not None and 0 <= index < len(users):
             st.session_state["admin_employee_detail_id"] = users[index]["id"]
             st.rerun()
@@ -2791,8 +2792,6 @@ def admin_panel(user):
     elif page == "schedule":
         proposals_panel(user, admin=True)
         admin_calendar(users)
-        with st.expander("Lista zgłoszonych dni wolnych"):
-            admin_availability(users)
 
     elif page == "events":
         admin_events_section(users)
