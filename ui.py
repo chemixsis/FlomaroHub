@@ -1120,19 +1120,20 @@ def apply_styles():
         background: #12314F !important;
         box-shadow: 0 6px 18px #06162633 !important;
         color: #FFFFFF !important;
-        text-align: left;
-        justify-content: flex-start;
+        text-align: center;
+        justify-content: center;
         padding: 22px 24px !important;
       }
       [class*="_approval_people"] button [data-testid="stMarkdownContainer"] {
         display: flex !important;
         flex-direction: column !important;
-        align-items: flex-start !important;
+        align-items: center !important;
         width: 100%;
       }
       [class*="_approval_people"] button p {
         display: block !important;
         width: 100%;
+        text-align: center !important;
         color: #FFFFFF !important;
         -webkit-text-fill-color: #FFFFFF !important;
         white-space: pre-line;
@@ -1185,6 +1186,8 @@ def apply_styles():
       }
       }
       /* Accessible work-area chips and rounded active navigation. */
+      .stApp.stApp.stApp.stApp.stApp.stApp .st-key-admin_event_editor :is([data-baseweb="tag"], [data-tag]),
+      .stApp.stApp.stApp.stApp.stApp.stApp .st-key-admin_event_editor :is([data-baseweb="tag"], [data-tag]) *,
       .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] :is([data-baseweb="tag"], [data-tag]),
       .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] :is([data-baseweb="tag"], [data-tag]) * {
         background-color: #E7B843 !important;

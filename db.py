@@ -1856,6 +1856,18 @@ def get_admin_event(actor_id, event_id):
         return event, crew
 
 
+def delete_event(actor_id, event_id):
+    with connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if not conn.execute("SELECT 1 FROM users WHERE id=? AND active=1 AND access_level='admin'", (actor_id,)).fetchone():
+            return False, "Tylko szef może usuwać eventy."
+        # Foreign keys remove crew, attachments and queued deliveries together.
+        deleted = conn.execute("DELETE FROM events WHERE id=?", (event_id,))
+        if deleted.rowcount == 0:
+            return False, "Ten event już nie istnieje."
+    return True, "Event został usunięty."
+
+
 def save_event_details(actor_id, event_id, name, event_date, start_time, end_time, location, note, user_ids, manager_id=None, files=()):
     if not name.strip():
         return False, "Podaj nazwę eventu."

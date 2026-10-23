@@ -26,7 +26,7 @@ from db import (
     get_schedules_for_users, get_group_schedules, get_all_schedules, get_schedule, delete_schedule,
     copy_schedule_week,
     create_event, get_user_events, get_worker_event_details, get_all_events,
-    get_admin_event, save_event_details, get_event_attachments, get_event_attachment,
+    get_admin_event, save_event_details, delete_event, get_event_attachments, get_event_attachment,
     get_unpaid_approved_shifts, create_payment,
     get_user_payments, get_all_payments,
     mark_payment_sent, confirm_payment_received,
@@ -2540,6 +2540,22 @@ def admin_events_section(users):
         if event is not None:
             st.markdown("### Załączniki")
             event_attachment_downloads(actor_id, event["id"])
+            with st.expander("Usuń event"):
+                st.write(f"Usuwasz: **{event['name']}** · {event['event_date']}")
+                st.caption("Event, jego obsada i załączniki zostaną trwale usunięte. Zapisane godziny pracy i wypłaty pozostaną.")
+                with st.form(f"delete_event_{event['id']}"):
+                    confirmed = st.checkbox("Potwierdzam usunięcie tego eventu")
+                    remove = st.form_submit_button("Usuń event na stałe")
+                if remove:
+                    if not confirmed:
+                        st.warning("Zaznacz potwierdzenie, aby usunąć event.")
+                    else:
+                        ok, message = delete_event(actor_id, event['id'])
+                        if ok:
+                            st.session_state['admin_event_saved'] = message
+                            back_to_admin_list('admin_event_detail_id', 'admin_events_epoch')
+                        else:
+                            st.error(message)
 
 
 def admin_hours_section(users, user):
