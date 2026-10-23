@@ -1185,7 +1185,6 @@ def approval_list(user, prefix, show_money):
 
     if selected is None:
         st.caption("Wybierz osobę, aby sprawdzić i zatwierdzić jej zmiany.")
-        st.write(f"**Osoby: {len(people)}** · Zmiany do zatwierdzenia: **{len(pending)}**")
         ordered = sorted(people.items(), key=lambda item: (
             item[1][0]['last_name'].casefold(), item[1][0]['first_name'].casefold(), item[0]))
         with st.container(key=f"{prefix}_approval_people"):
@@ -1194,8 +1193,9 @@ def approval_list(user, prefix, show_money):
                     with col:
                         person = shifts[0]
                         duration = minutes_to_text(sum(int(s['actual_minutes'] or 0) for s in shifts))
-                        label = (f"{person['first_name']} {person['last_name']}"
-                                 f"\n\nZmiany: {len(shifts)} · {duration}")
+                        label = (f"**{person['first_name']} {person['last_name']}**"
+                                 f"\n\nZmiany: {len(shifts)} · {duration}"
+                                 "\n\nPrzejdź do zmian →")
                         if st.button(label, key=f"{prefix}_approval_tile_{person_id}",
                                      use_container_width=True):
                             st.session_state[selection_key] = person_id

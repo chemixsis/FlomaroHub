@@ -1110,22 +1110,48 @@ def apply_styles():
         overflow: hidden;
       }
       [class*="_approval_people"] [data-testid="stButton"] button {
-        min-height: 130px !important;
+        min-height: 174px !important;
         width: 100%;
-        border: 1px solid #58718B !important;
-        background: #12314F !important;
+        border: 1px solid #365978 !important;
+        border-top: 3px solid #E7B843 !important;
+        border-radius: 18px !important;
+        background: linear-gradient(135deg, #183D5E, #102D4B) !important;
+        box-shadow: 0 6px 18px #06162633 !important;
         color: #FFFFFF !important;
         text-align: left;
         justify-content: flex-start;
-        padding: 20px !important;
+        padding: 22px 24px !important;
       }
       [class*="_approval_people"] button p {
         color: #FFFFFF !important;
         -webkit-text-fill-color: #FFFFFF !important;
         white-space: pre-line;
-        font-weight: 700;
+        font-weight: 400;
+        line-height: 1.45;
+        margin: 0 !important;
       }
-      [class*="_approval_people"] button:hover { border-color: #E7B843 !important; }
+      [class*="_approval_people"] button p:first-child {
+        font-size: 1.2rem !important;
+        margin-bottom: 12px !important;
+        overflow-wrap: anywhere;
+      }
+      [class*="_approval_people"] button p:nth-child(2) {
+        color: #BDCEDD !important;
+        -webkit-text-fill-color: #BDCEDD !important;
+        font-size: .9rem !important;
+      }
+      [class*="_approval_people"] button p:last-child {
+        color: #F1C963 !important;
+        -webkit-text-fill-color: #F1C963 !important;
+        font-size: .9rem !important;
+        font-weight: 700 !important;
+        margin-top: 18px !important;
+      }
+      [class*="_approval_people"] button:hover,
+      [class*="_approval_people"] button:focus-visible {
+        border-color: #E7B843 !important;
+        background: #1B4264 !important;
+      }
       [class*="_approval_card_"] {
         border-radius: 14px;
       }
