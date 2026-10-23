@@ -1,8 +1,13 @@
 import calendar
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from html import escape
 import streamlit as st
 from payroll import grosz
+
+
+def calendar_today():
+    return datetime.now(ZoneInfo("Europe/Warsaw")).date()
 
 
 def money(value):
@@ -1177,9 +1182,9 @@ def apply_styles():
       /* Accessible work-area chips and rounded active navigation. */
       .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] [data-baseweb="tag"],
       .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] [data-baseweb="tag"] * {
-        background-color: #E7B843 !important;
-        color: #000000 !important;
-        -webkit-text-fill-color: #000000 !important;
+        background-color: #12314F !important;
+        color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
       }
       [role="listbox"] [role="option"][aria-selected="true"],
       [role="listbox"] [role="option"][aria-selected="true"] * {
@@ -1221,6 +1226,20 @@ def apply_styles():
         cursor: pointer;
       }
       .stApp .roster-date-control:hover { text-decoration: underline; }
+      .roster-calendar-day.roster-today {
+        border: 2px solid #FF827B;
+        box-shadow: inset 0 0 0 1px #FF827B33;
+      }
+      .calendar-today-marker {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 30px; height: 30px; padding: 0 5px;
+        border: 2px solid #FF827B; border-radius: 50%;
+        color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important;
+      }
+      .calendar-today-label {
+        color: #FFABA6; font-size: .7rem; margin-left: 6px;
+        font-weight: 700;
+      }
     </style>
     """, unsafe_allow_html=True)
 
@@ -1362,13 +1381,16 @@ def render_roster_calendar(
         local_people = day_assignments["local"]
         free_people = days_off.get(date_key, [])
 
-        html += '<div class="roster-calendar-day">'
+        is_today = day == calendar_today()
+        date_label = (f'<span class="calendar-today-marker">{day_number}</span>'
+                      '<span class="calendar-today-label">Dziś</span>') if is_today else str(day_number)
+        html += '<div class="roster-calendar-day' + (' roster-today' if is_today else '') + '">'
         if on_day_select is not None:
             html += (f'<button type="button" class="roster-date roster-date-control" '
                      f'data-roster-day="{date_key}" aria-label="Edytuj obsadę {day.strftime("%d.%m.%Y")}">'
-                     f'{day_number}</button>')
+                     f'{date_label}</button>')
         else:
-            html += f'<div class="roster-date">{day_number}</div>'
+            html += f'<div class="roster-date">{date_label}</div>'
 
 
         if warehouse_people:

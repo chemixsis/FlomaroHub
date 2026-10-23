@@ -2,6 +2,7 @@ from datetime import date, time, datetime, timedelta
 import calendar
 import csv
 import io
+import pandas as pd
 from uuid import uuid4
 import streamlit as st
 from mobile import install_mobile_support
@@ -33,7 +34,7 @@ from db import (
     get_upcoming_events, get_user_summary, get_report_rows, get_admin_overview_rows,
 )
 from ui import (
-    apply_styles, login_keyboard, header, money, minutes_to_text,
+    apply_styles, login_keyboard, header, money, minutes_to_text, calendar_today,
     status_label, status_icon,
     render_week_calendar, render_month_calendar, render_roster_calendar,
 )
@@ -1170,6 +1171,15 @@ def approval_list(user, prefix, show_money):
         st.success(feedback)
     pending = get_pending_shifts()
     selection_key = f"{prefix}_approval_person"
+    target_id = st.session_state.pop(f"{prefix}_approval_target", None)
+    target = next((s for s in pending if s['id'] == target_id), None)
+    if target:
+        target_week = week_bounds(target['start_at'])[0]
+        st.session_state[selection_key] = target['user_id']
+        st.session_state[f"{prefix}_approval_week_{target['user_id']}"] = target_week
+        st.session_state[f"{prefix}_approval_detail_{target['user_id']}_{target_week.isoformat()}"] = target['id']
+    elif target_id is not None:
+        st.info("Ta zmiana została już rozpatrzona lub nie jest dostępna do zatwierdzenia.")
     if not pending:
         st.session_state.pop(selection_key, None)
         st.success("Brak zmian oczekujących na zatwierdzenie.")
@@ -1245,7 +1255,7 @@ def approval_list(user, prefix, show_money):
                 st.rerun()
             else:
                 st.warning(message)
-    with st.expander("Popraw lub rozpatrz pojedynczą zmianę"):
+    with st.expander("Popraw lub rozpatrz pojedynczą zmianę", expanded=target is not None):
         shift_id = st.selectbox("Wybierz zmianę", [s['id'] for s in weekly_shifts],
             format_func=lambda sid: next(
                 f"{s['start_at'][:16]} · {work_group_label(s['work_group'])}" for s in weekly_shifts if s['id'] == sid),
@@ -2148,6 +2158,53 @@ def admin_reports(users):
     )
 
 
+def admin_shift_table(shifts, key, include_employee=False):
+    if not shifts:
+        st.info("Brak zmian dla wybranych filtrów.")
+        return
+    data = []
+    for shift in shifts:
+        row = shift_summary(shift)
+        row['Status'] = f"{status_icon(shift['approval_status'])} {status_label(shift['approval_status'])}"
+        if include_employee:
+            row['Pracownik'] = f"{shift['first_name']} {shift['last_name']}"
+            row['Stawka'] = money(shift['hourly_rate'])
+        data.append(row)
+    colors = {'pending': '#594516', 'approved': '#164C40',
+              'rejected': '#582B3A', 'active': '#173E61'}
+    frame = pd.DataFrame(data)
+    styled = frame.style.apply(lambda row: [
+        f"background-color: {colors.get(shifts[row.name]['approval_status'], '#12314F')}; color: #FFFFFF"
+    ] * len(row), axis=1)
+    st.caption("🟡 Oczekuje · 🟢 Zatwierdzona. Kliknij oczekującą zmianę, aby przejść do jej zatwierdzenia.")
+    epoch_key = f"{key}_epoch"
+    selection = st.dataframe(styled, use_container_width=True, hide_index=True,
+        on_select="rerun", selection_mode="single-cell",
+        key=f"{key}_{st.session_state.get(epoch_key, 0)}")
+    index = table_selected_index(selection)
+    if index is not None and 0 <= index < len(shifts):
+        shift = shifts[index]
+        if shift['approval_status'] == 'pending':
+            st.session_state[epoch_key] = st.session_state.get(epoch_key, 0) + 1
+            st.session_state['admin_approval_target'] = shift['id']
+            st.session_state['admin_page'] = 'approvals'
+            st.rerun()
+
+
+def employee_profile_calendar(employee):
+    anchor = st.date_input("Miesiąc grafiku", value=calendar_today().replace(day=1),
+                           key=f"profile_calendar_month_{employee['id']}")
+    month_start, month_end = month_range(anchor)
+    rows = get_schedules_for_users([employee['id']], month_start, month_end)
+    days_off = get_days_off_for_users([employee['id']], month_start, month_end)
+    events = [dict(e, people=f"{employee['first_name']} {employee['last_name']}")
+              for e in get_user_events(employee['id'])
+              if month_start.isoformat() <= e['event_date'] <= month_end.isoformat()]
+    st.caption("Grafik tylko tej osoby: Magazyn, Lokal, przypisane eventy i dni wolne.")
+    render_roster_calendar(rows, [employee], anchor, days_off_rows=days_off,
+        show_days_off=True, event_rows=events, color_coded=True)
+
+
 def admin_profiles(users, employee=None, show_identity=True):
     if employee is None:
         labels = {f"{u['first_name']} {u['last_name']} — {u['email']}": u for u in users}
@@ -2187,11 +2244,8 @@ def admin_profiles(users, employee=None, show_identity=True):
             if not shifts:
                 st.info("Brak zmian.")
             else:
-                st.dataframe(
-                    [shift_summary(s) for s in shifts if s["approval_status"] != "active"],
-                    use_container_width=True,
-                    hide_index=True,
-                )
+                admin_shift_table([s for s in shifts if s["approval_status"] != "active"],
+                                  key=f"profile_shifts_{employee['id']}")
 
     if tabs[1].open:
         with tabs[1]:
@@ -2212,19 +2266,7 @@ def admin_profiles(users, employee=None, show_identity=True):
 
     if tabs[2].open:
         with tabs[2]:
-            schedule = get_user_schedule(employee["id"])
-            if not schedule:
-                st.info("Brak grafiku.")
-            else:
-                st.dataframe(
-                    [{
-                        "Data": s["work_date"],
-                        "Miejsce": work_group_label(s["work_group"]),
-                        "Uwagi": s["note"] or "",
-                    } for s in schedule],
-                    use_container_width=True,
-                    hide_index=True,
-                )
+            employee_profile_calendar(employee)
 
     if tabs[3].open:
         with tabs[3]:
@@ -2618,21 +2660,7 @@ def admin_hours_section(users, user):
             if r["approval_status"] in status_filter
         ]
 
-        data = []
-
-        for r in visible:
-            summary = shift_summary(r)
-            summary["Pracownik"] = (
-                f"{r['first_name']} {r['last_name']}"
-            )
-            summary["Stawka"] = money(r["hourly_rate"])
-            data.append(summary)
-
-        st.dataframe(
-            data,
-            use_container_width=True,
-            hide_index=True,
-        )
+        admin_shift_table(visible, key="all_shifts", include_employee=True)
 
 
 def admin_payments_section(users):
