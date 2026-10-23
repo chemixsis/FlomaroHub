@@ -69,9 +69,7 @@ def apply_styles():
       }
 
       .stApp {
-        background:
-          radial-gradient(circle at 12% 8%, rgba(42,88,126,.26), transparent 28%),
-          linear-gradient(180deg, #0B2744 0%, var(--flomaro-navy) 52%, #0A223B 100%);
+        background: var(--flomaro-navy);
       }
 
       /* Lower the whole app so Streamlit's black top bar never covers the brand. */
@@ -171,7 +169,7 @@ def apply_styles():
         justify-content: center;
         text-align: center;
         border-radius: 22px;
-        background: linear-gradient(145deg, #24577C, #12385E);
+        background: #12385E;
         border: 1px solid rgba(231,184,67,.24);
         font-family: "Outfit", "Segoe UI", sans-serif;
         font-size: 1.5rem;
@@ -182,7 +180,7 @@ def apply_styles():
 
       div[class*="st-key-admin_nav_"] button:hover {
         border-color: #E7B843;
-        background: linear-gradient(145deg, #2D6286, #19476F);
+        background: #19476F;
         color: #F3D98E;
       }
 
@@ -375,8 +373,7 @@ def apply_styles():
         padding: 20px;
         border-radius: 24px;
         border: 1px solid rgba(231,184,67,.18);
-        background:
-          linear-gradient(145deg, rgba(42,88,126,.92), rgba(18,56,94,.96));
+        background: #12385E;
         color: var(--flomaro-text) !important;
         text-decoration: none !important;
         box-shadow: 0 14px 34px rgba(0,0,0,.13);
@@ -1120,14 +1117,22 @@ def apply_styles():
         border: 1px solid #365978 !important;
         border-top: 3px solid #E7B843 !important;
         border-radius: 18px !important;
-        background: linear-gradient(135deg, #183D5E, #102D4B) !important;
+        background: #12314F !important;
         box-shadow: 0 6px 18px #06162633 !important;
         color: #FFFFFF !important;
         text-align: left;
         justify-content: flex-start;
         padding: 22px 24px !important;
       }
+      [class*="_approval_people"] button [data-testid="stMarkdownContainer"] {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100%;
+      }
       [class*="_approval_people"] button p {
+        display: block !important;
+        width: 100%;
         color: #FFFFFF !important;
         -webkit-text-fill-color: #FFFFFF !important;
         white-space: pre-line;
@@ -1226,6 +1231,19 @@ def apply_styles():
         cursor: pointer;
       }
       .stApp .roster-date-control:hover { text-decoration: underline; }
+      .st-key-proposals_pending [data-testid="stExpander"] {
+        border: 1px solid #E7B843 !important;
+        border-radius: 12px !important;
+      }
+      .st-key-proposals_pending [data-testid="stExpander"] > details > summary {
+        background: #173A5B !important;
+        border-radius: 12px;
+      }
+      .st-key-proposals_pending [data-testid="stExpander"] > details > summary p {
+        color: #F1C963 !important;
+        -webkit-text-fill-color: #F1C963 !important;
+        font-weight: 700 !important;
+      }
       .roster-calendar-day.roster-today {
         border: 2px solid #FF827B;
         box-shadow: inset 0 0 0 1px #FF827B33;

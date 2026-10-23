@@ -97,16 +97,19 @@ def proposal_card(user, proposal, names):
 def admin_proposals_panel(user, proposals, names):
     pending = [p for p in proposals if p['status'] == 'pending']
     history = [p for p in proposals if p['status'] != 'pending']
-    with st.expander(f"Propozycje grafiku · oczekujące: {len(pending)}", expanded=bool(pending)):
-        if 'proposal_flash' in st.session_state:
-            st.success(st.session_state.pop('proposal_flash'))
-        st.caption('Zmiany w lokalu trafią do grafiku po akceptacji. Lokal zastępuje magazyn przypisany tej osobie w tym dniu.')
-        if pending:
-            for p in sorted(pending, key=lambda item: str(item['work_date'])):
-                proposal_card(user, p, names)
-        else:
-            st.info('Wszystkie propozycje są rozpatrzone. Brak nowych wniosków.')
-        if history:
-            with st.expander(f"Historia decyzji ({len(history)})"):
-                for p in history:
+    title = (f"🟡 Propozycje grafiku · do zatwierdzenia: {len(pending)}"
+             if pending else "Propozycje grafiku · brak oczekujących")
+    with st.container(key="proposals_pending" if pending else "proposals_clear"):
+        with st.expander(title, expanded=False):
+            if 'proposal_flash' in st.session_state:
+                st.success(st.session_state.pop('proposal_flash'))
+            st.caption('Zmiany w lokalu trafią do grafiku po akceptacji. Lokal zastępuje magazyn przypisany tej osobie w tym dniu.')
+            if pending:
+                for p in sorted(pending, key=lambda item: str(item['work_date'])):
                     proposal_card(user, p, names)
+            else:
+                st.info('Wszystkie propozycje są rozpatrzone. Brak nowych wniosków.')
+            if history:
+                with st.expander(f"Historia decyzji ({len(history)})"):
+                    for p in history:
+                        proposal_card(user, p, names)
