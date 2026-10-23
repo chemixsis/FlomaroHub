@@ -2787,8 +2787,9 @@ def admin_panel(user):
         page = None
         st.session_state["admin_page"] = None
 
-    st.markdown('<div class="admin-panel-heading">Panel szefa</div>',
-                unsafe_allow_html=True)
+    with st.container(key="admin_heading"):
+        st.markdown('<div class="admin-panel-heading">Panel szefa</div>',
+                    unsafe_allow_html=True)
 
     admin_navigation()
 

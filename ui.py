@@ -1185,11 +1185,19 @@ def apply_styles():
       }
       }
       /* Accessible work-area chips and rounded active navigation. */
-      .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] [data-baseweb="tag"],
-      .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] [data-baseweb="tag"] * {
-        background-color: #12314F !important;
-        color: #FFFFFF !important;
-        -webkit-text-fill-color: #FFFFFF !important;
+      .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] :is([data-baseweb="tag"], [data-tag]),
+      .stApp.stApp.stApp.stApp.stApp.stApp [class*="st-key-admin_work_groups_"] :is([data-baseweb="tag"], [data-tag]) * {
+        background-color: #E7B843 !important;
+        color: #0B2744 !important;
+        -webkit-text-fill-color: #0B2744 !important;
+      }
+      .st-key-admin_heading {
+        padding-top: 24px !important;
+        padding-bottom: 16px !important;
+      }
+      .st-key-admin_heading .admin-panel-heading {
+        margin: 0;
+        line-height: 1.35;
       }
       [role="listbox"] [role="option"][aria-selected="true"],
       [role="listbox"] [role="option"][aria-selected="true"] * {
